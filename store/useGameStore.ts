@@ -1,11 +1,6 @@
-import { create } from 'zustand';
-import {
-    BOARD_SIZE,
-    generateRandomBlocks,
-    POINTS_PER_CELL,
-    POINTS_PER_LINE,
-} from '../constants/constants';
-import type { GameState, Grid, Shape } from '../constants/types';
+import {create} from 'zustand';
+import {BOARD_SIZE, generateRandomBlocks, POINTS_PER_CELL, POINTS_PER_LINE,} from '@/constants/constants';
+import type {GameState, Grid, Shape} from '@/constants/types';
 
 interface GameActions {
   checkCollision: (shape: Shape, gridRow: number, gridCol: number) => boolean;
@@ -107,7 +102,7 @@ const clearLines = (grid: Grid): { newGrid: Grid; linesCleared: number } => {
     }
   }
 
-  return { newGrid, linesCleared };
+  return {newGrid, linesCleared};
 };
 
 /**
@@ -115,16 +110,16 @@ const clearLines = (grid: Grid): { newGrid: Grid; linesCleared: number } => {
  */
 const calculateScore = (cellsPlaced: number, linesCleared: number): number => {
   let score = cellsPlaced * POINTS_PER_CELL;
-  
+
   if (linesCleared > 0) {
     score += linesCleared * POINTS_PER_LINE;
-    
+
     // Combo bonus for multiple lines
     if (linesCleared > 1) {
       score = Math.floor(score * (1 + (linesCleared - 1) * 0.5));
     }
   }
-  
+
   return score;
 };
 
@@ -147,13 +142,13 @@ export const useGameStore = create<GameStore>((set: any, get: any) => ({
 
   // Actions
   checkCollision: (shape: Shape, gridRow: number, gridCol: number) => {
-    const { grid } = get();
+    const {grid} = get();
     return checkCollision(grid, shape, gridRow, gridCol);
   },
 
   placeBlock: (blockId: string, gridRow: number, gridCol: number) => {
-    const { grid, currentBlocks, score, highScore } = get();
-    
+    const {grid, currentBlocks, score, highScore} = get();
+
     // Find the block being placed
     const block = currentBlocks.find((b: any) => b.id === blockId);
     if (!block) return false;
@@ -170,7 +165,7 @@ export const useGameStore = create<GameStore>((set: any, get: any) => ({
     const cellsPlaced = countShapeCells(block.shape);
 
     // Check and clear lines
-    const { newGrid: clearedGrid, linesCleared } = clearLines(newGrid);
+    const {newGrid: clearedGrid, linesCleared} = clearLines(newGrid);
 
     // Calculate new score
     const earnedScore = calculateScore(cellsPlaced, linesCleared);
@@ -193,7 +188,7 @@ export const useGameStore = create<GameStore>((set: any, get: any) => ({
     // Check if game is over (after spawning new blocks if needed)
     setTimeout(() => {
       if (!get().canPlaceAnyBlock()) {
-        set({ isGameOver: true });
+        set({isGameOver: true});
       }
     }, 100);
 
@@ -201,22 +196,22 @@ export const useGameStore = create<GameStore>((set: any, get: any) => ({
   },
 
   removeBlockFromHand: (blockId: string) => {
-    const { currentBlocks } = get();
+    const {currentBlocks} = get();
     const newBlocks = currentBlocks.filter((b: any) => b.id !== blockId);
-    
+
     // If no blocks left, spawn new ones
     const finalBlocks = newBlocks.length === 0 ? generateRandomBlocks(3) : newBlocks;
-    
-    set({ currentBlocks: finalBlocks });
+
+    set({currentBlocks: finalBlocks});
   },
 
   spawnNewBlocks: () => {
-    set({ currentBlocks: generateRandomBlocks(3) });
+    set({currentBlocks: generateRandomBlocks(3)});
   },
 
   canPlaceAnyBlock: () => {
-    const { grid, currentBlocks } = get();
-    
+    const {grid, currentBlocks} = get();
+
     // Check if any current block can be placed anywhere on the grid
     for (const block of currentBlocks) {
       for (let row = 0; row < BOARD_SIZE; row++) {
@@ -227,7 +222,7 @@ export const useGameStore = create<GameStore>((set: any, get: any) => ({
         }
       }
     }
-    
+
     return false;
   },
 

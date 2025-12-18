@@ -4,16 +4,24 @@
  */
 
 import {GameBoard} from "@/components/GameBoard";
-import {useGameStore} from "@/store/useGameStore";
 import type {BoardMeasurements} from "@/constants/types";
+import {DraggableBlock} from "@/components/DraggableBlock";
+import {useGameStore} from "@/store/useGameStore";
 import React, {useState} from "react";
 import {Pressable, StyleSheet, Text, View} from "react-native";
+import {GestureHandlerRootView} from "react-native-gesture-handler";
 
 export default function GameScreen() {
   const {score, highScore, isGameOver, resetGame, currentBlocks} =
     useGameStore();
   const [boardMeasurements, setBoardMeasurements] =
     useState<BoardMeasurements | null>(null);
+  const [ghostPreview, setGhostPreview] = useState<{
+    row: number;
+    col: number;
+    shape: number[][];
+    isValid: boolean;
+  } | null>(null);
 
   const handleBoardLayout = (measurements: BoardMeasurements) => {
     setBoardMeasurements(measurements);
@@ -23,75 +31,78 @@ export default function GameScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Header - Score Display */}
-      <View style={styles.header}>
-        <View style={styles.scoreContainer}>
-          <Text style={styles.scoreLabel}>SCORE</Text>
-          <Text style={styles.scoreValue}>{score}</Text>
-        </View>
-        <View style={styles.scoreContainer}>
-          <Text style={styles.scoreLabel}>BEST</Text>
-          <Text style={styles.scoreValue}>{highScore}</Text>
-        </View>
-      </View>
-
-      {/* Game Board */}
-      <View style={styles.boardContainer}>
-        <GameBoard onLayout={handleBoardLayout} ghostPreview={null}/>
-      </View>
-
-      {/* Block Tray (Placeholder - will add DraggableBlock components) */}
-      <View style={styles.tray}>
-        <Text style={styles.trayLabel}>
-          Available Blocks: {currentBlocks.length}
-        </Text>
-        <View style={styles.blockContainer}>
-          {currentBlocks.map((block, index) => (
-            <View
-              key={block.id}
-              style={[
-                styles.blockPlaceholder,
-                {backgroundColor: block.color},
-              ]}
-            >
-              <Text style={styles.blockText}>{index + 1}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-
-      {/* Game Over Modal */}
-      {isGameOver && (
-        <View style={styles.gameOverModal}>
-          <View style={styles.modalContent}>
-            <Text style={styles.gameOverText}>Game Over!</Text>
-            <Text style={styles.finalScore}>Final Score: {score}</Text>
-            {score === highScore && score > 0 && (
-              <Text style={styles.newRecord}>🎉 New Record!</Text>
-            )}
-            <Pressable style={styles.resetButton} onPress={resetGame}>
-              <Text style={styles.resetButtonText}>Play Again</Text>
-            </Pressable>
+    <GestureHandlerRootView style={styles.flex}>
+      <View style={styles.container}>
+        {/* Header - Score Display */}
+        <View style={styles.header}>
+          <View style={styles.scoreContainer}>
+            <Text style={styles.scoreLabel}>SCORE</Text>
+            <Text style={styles.scoreValue}>{score}</Text>
+          </View>
+          <View style={styles.scoreContainer}>
+            <Text style={styles.scoreLabel}>BEST</Text>
+            <Text style={styles.scoreValue}>{highScore}</Text>
           </View>
         </View>
-      )}
 
-      {/* Debug Info (Development only) */}
-      {__DEV__ && boardMeasurements && (
-        <View style={styles.debug}>
-          <Text style={styles.debugText}>
-            Board: {Math.round(boardMeasurements.x)},{" "}
-            {Math.round(boardMeasurements.y)}
-          </Text>
-          <Text style={styles.debugText}>Blocks: {currentBlocks.length}</Text>
+        {/* Game Board */}
+        <View style={styles.boardContainer}>
+          <GameBoard onLayout={handleBoardLayout} ghostPreview={ghostPreview}/>
         </View>
-      )}
-    </View>
+
+        {/* Block Tray with Draggable Blocks */}
+        <View style={styles.tray}>
+          <Text style={styles.trayLabel}>
+            Drag blocks to the grid
+          </Text>
+          <View style={styles.blockContainer}>
+            {currentBlocks.map((block) => (
+              <View key={block.id} style={styles.blockWrapper}>
+                <DraggableBlock
+                  block={block}
+                  boardMeasurements={boardMeasurements}
+                  onGhostUpdate={setGhostPreview}
+                />
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Game Over Modal */}
+        {isGameOver && (
+          <View style={styles.gameOverModal}>
+            <View style={styles.modalContent}>
+              <Text style={styles.gameOverText}>Game Over!</Text>
+              <Text style={styles.finalScore}>Final Score: {score}</Text>
+              {score === highScore && score > 0 && (
+                <Text style={styles.newRecord}>🎉 New Record!</Text>
+              )}
+              <Pressable style={styles.resetButton} onPress={resetGame}>
+                <Text style={styles.resetButtonText}>Play Again</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {/* Debug Info (Development only) */}
+        {__DEV__ && boardMeasurements && (
+          <View style={styles.debug}>
+            <Text style={styles.debugText}>
+              Board: {Math.round(boardMeasurements.x)},{" "}
+              {Math.round(boardMeasurements.y)}
+            </Text>
+            <Text style={styles.debugText}>Blocks: {currentBlocks.length}</Text>
+          </View>
+        )}
+      </View>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     backgroundColor: "#0a0a15",
@@ -142,23 +153,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     alignItems: "center",
   },
-  blockPlaceholder: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
+  blockWrapper: {
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#ffffff20",
-    opacity: 0.8,
-  },
-  blockText: {
-    color: "#fff",
-    fontSize: 24,
-    fontWeight: "bold",
-    textShadowColor: "#000",
-    textShadowOffset: {width: 1, height: 1},
-    textShadowRadius: 2,
+    padding: 8,
   },
   gameOverModal: {
     position: "absolute",
