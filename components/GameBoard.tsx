@@ -4,11 +4,12 @@
  * Performance is good enough for an 8x8 grid
  */
 
-import React, { useCallback, useState } from 'react';
-import { View, StyleSheet, LayoutChangeEvent } from 'react-native';
-import { useGameStore } from '@/store/useGameStore';
 import { BOARD_SIZE, CELL_SIZE, GAP, GRID_PADDING } from '@/constants/constants';
 import type { BoardMeasurements } from '@/constants/types';
+import { useGameStore } from '@/store/useGameStore';
+import { getGridPosition } from '@/utils/gameLogic';
+import React, { useCallback, useState } from 'react';
+import { LayoutChangeEvent, StyleSheet, View } from 'react-native';
 
 interface GameBoardProps {
   onLayout?: (measurements: BoardMeasurements) => void;
@@ -146,22 +147,13 @@ const styles = StyleSheet.create({
 
 /**
  * Utility function to convert absolute coordinates to grid position
+ * Re-exports getGridPosition from utils for backward compatibility
  */
 export const convertToGridPosition = (
   x: number,
   y: number,
   boardMeasurements: BoardMeasurements
 ): { row: number; col: number } | null => {
-  const relativeX = x - boardMeasurements.x - GRID_PADDING;
-  const relativeY = y - boardMeasurements.y - GRID_PADDING;
-
-  const col = Math.floor(relativeX / (CELL_SIZE + GAP));
-  const row = Math.floor(relativeY / (CELL_SIZE + GAP));
-
-  if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) {
-    return null;
-  }
-
-  return { row, col };
+  return getGridPosition(x, y, boardMeasurements);
 };
 

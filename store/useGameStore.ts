@@ -1,6 +1,11 @@
-import {create} from 'zustand';
-import {BOARD_SIZE, generateRandomBlocks, POINTS_PER_CELL, POINTS_PER_LINE,} from '@/constants/constants';
-import type {GameState, Grid, Shape} from '@/constants/types';
+import { BOARD_SIZE, generateRandomBlocks, POINTS_PER_CELL, POINTS_PER_LINE, } from '@/constants/constants';
+import type { GameState, Grid, Shape } from '@/constants/types';
+import {
+  canPlaceBlock,
+  checkLines,
+  createEmptyGrid,
+} from '@/utils/gameLogic';
+import { create } from 'zustand';
 
 interface GameActions {
   checkCollision: (shape: Shape, gridRow: number, gridCol: number) => boolean;
@@ -13,45 +18,7 @@ interface GameActions {
 
 type GameStore = GameState & GameActions;
 
-/**
- * Creates an empty 8x8 grid
- */
-const createEmptyGrid = (): Grid => {
-  return Array(BOARD_SIZE)
-    .fill(null)
-    .map(() => Array(BOARD_SIZE).fill(0));
-};
-
-/**
- * Check if a shape can be placed at the given grid position
- */
-const checkCollision = (grid: Grid, shape: Shape, gridRow: number, gridCol: number): boolean => {
-  for (let row = 0; row < shape.length; row++) {
-    for (let col = 0; col < shape[row].length; col++) {
-      if (shape[row][col] === 1) {
-        const targetRow = gridRow + row;
-        const targetCol = gridCol + col;
-
-        // Check bounds
-        if (
-          targetRow < 0 ||
-          targetRow >= BOARD_SIZE ||
-          targetCol < 0 ||
-          targetCol >= BOARD_SIZE
-        ) {
-          return false;
-        }
-
-        // Check if cell is already occupied
-        if (grid[targetRow][targetCol] === 1) {
-          return false;
-        }
-      }
-    }
-  }
-
-  return true;
-};
+// Game logic functions are now imported from utils/gameLogic.ts
 
 /**
  * Place a shape on the grid and return the new grid
@@ -72,38 +39,7 @@ const placeShapeOnGrid = (grid: Grid, shape: Shape, gridRow: number, gridCol: nu
   return newGrid;
 };
 
-/**
- * Check and clear completed lines (rows and columns)
- * Returns the new grid and the number of lines cleared
- */
-const clearLines = (grid: Grid): { newGrid: Grid; linesCleared: number } => {
-  let newGrid = grid.map(row => [...row]);
-  let linesCleared = 0;
-
-  // Check rows
-  for (let row = 0; row < BOARD_SIZE; row++) {
-    const isRowFull = newGrid[row].every(cell => cell === 1);
-    if (isRowFull) {
-      // Clear the row
-      newGrid[row] = Array(BOARD_SIZE).fill(0);
-      linesCleared++;
-    }
-  }
-
-  // Check columns
-  for (let col = 0; col < BOARD_SIZE; col++) {
-    const isColFull = newGrid.every(row => row[col] === 1);
-    if (isColFull) {
-      // Clear the column
-      for (let row = 0; row < BOARD_SIZE; row++) {
-        newGrid[row][col] = 0;
-      }
-      linesCleared++;
-    }
-  }
-
-  return {newGrid, linesCleared};
-};
+// Line clearing logic is now imported from utils/gameLogic.ts
 
 /**
  * Calculate score based on cells placed and lines cleared
@@ -143,7 +79,7 @@ export const useGameStore = create<GameStore>((set: any, get: any) => ({
   // Actions
   checkCollision: (shape: Shape, gridRow: number, gridCol: number) => {
     const {grid} = get();
-    return checkCollision(grid, shape, gridRow, gridCol);
+    return canPlaceBlock(grid, shape, gridRow, gridCol);
   },
 
   placeBlock: (blockId: string, gridRow: number, gridCol: number) => {
@@ -154,7 +90,7 @@ export const useGameStore = create<GameStore>((set: any, get: any) => ({
     if (!block) return false;
 
     // Check if placement is valid
-    if (!checkCollision(grid, block.shape, gridRow, gridCol)) {
+    if (!canPlaceBlock(grid, block.shape, gridRow, gridCol)) {
       return false;
     }
 
@@ -165,7 +101,7 @@ export const useGameStore = create<GameStore>((set: any, get: any) => ({
     const cellsPlaced = countShapeCells(block.shape);
 
     // Check and clear lines
-    const {newGrid: clearedGrid, linesCleared} = clearLines(newGrid);
+    const {clearedGrid, linesCleared} = checkLines(newGrid);
 
     // Calculate new score
     const earnedScore = calculateScore(cellsPlaced, linesCleared);
@@ -216,7 +152,7 @@ export const useGameStore = create<GameStore>((set: any, get: any) => ({
     for (const block of currentBlocks) {
       for (let row = 0; row < BOARD_SIZE; row++) {
         for (let col = 0; col < BOARD_SIZE; col++) {
-          if (checkCollision(grid, block.shape, row, col)) {
+          if (canPlaceBlock(grid, block.shape, row, col)) {
             return true;
           }
         }
