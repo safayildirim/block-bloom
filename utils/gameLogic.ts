@@ -26,8 +26,9 @@ export interface BlockSize {
 }
 
 /**
- * 1. Coordinate Conversion
+ * 1. Coordinate Conversion (Top-Left Based)
  * Converts absolute screen coordinates to grid row/column indices
+ * Uses top-left corner of the touch point
  * 
  * @param absoluteX - Absolute X coordinate on screen
  * @param absoluteY - Absolute Y coordinate on screen
@@ -50,6 +51,55 @@ export function getGridPosition(
   const relativeY = absoluteY - boardLayout.y - blockSize.padding;
 
   // Calculate grid position
+  const cellWithGap = blockSize.cellSize + blockSize.gap;
+  const col = Math.floor(relativeX / cellWithGap);
+  const row = Math.floor(relativeY / cellWithGap);
+
+  // Validate bounds
+  if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) {
+    return null;
+  }
+
+  return { row, col };
+}
+
+/**
+ * 1b. Coordinate Conversion (Center-Based)
+ * Converts block center point to grid row/column indices
+ * Calculates grid position based on the center of the dragged block
+ * 
+ * @param gestureX - Absolute X coordinate of gesture (touch point)
+ * @param gestureY - Absolute Y coordinate of gesture (touch point)
+ * @param blockWidthPx - Width of the block in pixels
+ * @param blockHeightPx - Height of the block in pixels
+ * @param dragOffsetY - Visual offset applied to raise block above finger
+ * @param boardLayout - Board position and dimensions
+ * @param blockSize - Cell size, gap, and padding configuration
+ * @returns Grid position { row, col } or null if out of bounds
+ */
+export function getGridPositionFromCenter(
+  gestureX: number,
+  gestureY: number,
+  blockWidthPx: number,
+  blockHeightPx: number,
+  dragOffsetY: number,
+  boardLayout: BoardLayout,
+  blockSize: BlockSize = {
+    cellSize: CELL_SIZE,
+    gap: GAP,
+    padding: GRID_PADDING,
+  }
+): { row: number; col: number } | null {
+  // Calculate block center point
+  // The visual block is offset by dragOffsetY above the finger
+  const blockCenterX = gestureX + blockWidthPx / 2;
+  const blockCenterY = gestureY + dragOffsetY + blockHeightPx / 2;
+
+  // Convert center point to relative coordinates within the canvas
+  const relativeX = blockCenterX - boardLayout.x - blockSize.padding;
+  const relativeY = blockCenterY - boardLayout.y - blockSize.padding;
+
+  // Calculate grid position based on center
   const cellWithGap = blockSize.cellSize + blockSize.gap;
   const col = Math.floor(relativeX / cellWithGap);
   const row = Math.floor(relativeY / cellWithGap);

@@ -3,13 +3,13 @@
  * Handles drag gestures for block pieces with collision detection
  */
 
-import { convertToGridPosition } from "@/components/GameBoard";
-import { CELL_SIZE, GAP, getShapeDimensions } from "@/constants/constants";
+import { CELL_SIZE, DRAG_OFFSET_Y, GAP, getShapeDimensions } from "@/constants/constants";
 import type { Block, BoardMeasurements } from "@/constants/types";
 import { useGameStore } from "@/store/useGameStore";
+import { getGridPosition } from "@/utils/gameLogic";
 import * as Haptics from "expo-haptics";
-import React, { useCallback, useMemo } from "react";
-import { StyleSheet, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { LayoutChangeEvent, StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
@@ -45,7 +45,15 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
   const opacity = useSharedValue(1);
 
   // Track if block was successfully placed (using React state, not shared value)
-  const [isPlaced, setIsPlaced] = React.useState(false);
+  const [isPlaced, setIsPlaced] = useState(false);
+
+  // Track the block's initial position in the tray
+  const [initialPosition, setInitialPosition] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
   // Get block dimensions
   const { width: shapeWidth, height: shapeHeight } = useMemo(
@@ -53,49 +61,89 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
     [block.shape]
   );
 
-  // Calculate block render size
-  const blockWidth = shapeWidth * CELL_SIZE + (shapeWidth - 1) * GAP;
-  const blockHeight = shapeHeight * CELL_SIZE + (shapeHeight - 1) * GAP;
+  // Calculate block render size in pixels
+  const blockWidthPx = shapeWidth * CELL_SIZE + (shapeWidth - 1) * GAP;
+  const blockHeightPx = shapeHeight * CELL_SIZE + (shapeHeight - 1) * GAP;
 
   /**
-   * Update ghost preview on the game board
+   * Update ghost preview on the game board using center-based snapping
    */
   const updateGhost = useCallback(
     (absoluteX: number, absoluteY: number) => {
-      if (!boardMeasurements) {
+      console.log('👻 updateGhost CALLED:', {
+        absoluteX,
+        absoluteY,
+        hasBoardMeasurements: !!boardMeasurements,
+        hasInitialPosition: !!initialPosition,
+        boardMeasurements,
+        initialPosition,
+      });
+
+      if (!boardMeasurements || !initialPosition) {
+        console.warn('❌ Cannot update ghost: missing boardMeasurements or initialPosition');
         onGhostUpdate(null);
         return;
       }
 
-      const gridPos = convertToGridPosition(
-        absoluteX,
-        absoluteY,
+      // Calculate the visual block's center position
+      // The block is visually offset by DRAG_OFFSET_Y above the finger
+      // So the center is: finger position + offset + half block size
+      const visualBlockCenterX = absoluteX + blockWidthPx / 2;
+      const visualBlockCenterY = absoluteY + DRAG_OFFSET_Y + blockHeightPx / 2;
+
+      // Get grid position based on visual block center
+      const centerGridPos = getGridPosition(
+        visualBlockCenterX,
+        visualBlockCenterY,
         boardMeasurements
       );
 
-      if (!gridPos) {
+      if (!centerGridPos) {
         onGhostUpdate(null);
         return;
       }
 
-      const isValid = checkCollision(block.shape, gridPos.row, gridPos.col);
+      // Convert center-based grid position to top-left placement position
+      // Shapes are placed starting from their top-left corner
+      const topLeftRow = centerGridPos.row - Math.floor(shapeHeight / 2);
+      const topLeftCol = centerGridPos.col - Math.floor(shapeWidth / 2);
+
+      // Check bounds - top-left must be valid
+      if (topLeftRow < 0 || topLeftCol < 0) {
+        onGhostUpdate(null);
+        return;
+      }
+
+      const isValid = checkCollision(block.shape, topLeftRow, topLeftCol);
 
       onGhostUpdate({
-        row: gridPos.row,
-        col: gridPos.col,
+        row: topLeftRow,
+        col: topLeftCol,
         shape: block.shape,
         isValid,
       });
     },
-    [boardMeasurements, block.shape, checkCollision, onGhostUpdate]
+    [boardMeasurements, block.shape, blockWidthPx, blockHeightPx, shapeWidth, shapeHeight, checkCollision, onGhostUpdate, initialPosition]
   );
 
   /**
-   * Attempt to place the block on the board
+   * Attempt to place the block on the board using center-based snapping
    */
   const attemptPlacement = useCallback(
-    (absoluteX: number, absoluteY: number) => {
-      if (!boardMeasurements) {
+    (translationX: number, translationY: number, absoluteX: number, absoluteY: number) => {
+      console.log('🎯 attemptPlacement CALLED:', {
+        translationX,
+        translationY,
+        absoluteX,
+        absoluteY,
+        hasBoardMeasurements: !!boardMeasurements,
+        hasInitialPosition: !!initialPosition,
+        boardMeasurements,
+        initialPosition,
+      });
+
+      if (!boardMeasurements || !initialPosition) {
+        console.warn('❌ Cannot place: missing boardMeasurements or initialPosition');
         // Invalid - spring back
         translateX.value = withSpring(0);
         translateY.value = withSpring(0);
@@ -104,13 +152,36 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
         return;
       }
 
-      const gridPos = convertToGridPosition(
-        absoluteX,
-        absoluteY,
+      // Calculate the visual block's center position
+      // The block is visually offset by DRAG_OFFSET_Y above the finger
+      // So the center is: finger position + offset + half block size
+      const visualBlockCenterX = absoluteX + blockWidthPx / 2;
+      const visualBlockCenterY = absoluteY + DRAG_OFFSET_Y + blockHeightPx / 2;
+
+      console.log('📍 Visual block center calculated:', {
+        visualBlockCenterX,
+        visualBlockCenterY,
+        initialX: initialPosition.x,
+        initialY: initialPosition.y,
+        blockWidthPx,
+        blockHeightPx,
+        translationX,
+        translationY,
+        dragOffsetY: DRAG_OFFSET_Y,
+        boardMeasurements,
+      });
+
+      // Get grid position based on visual block center
+      const centerGridPos = getGridPosition(
+        visualBlockCenterX,
+        visualBlockCenterY,
         boardMeasurements
       );
 
-      if (!gridPos) {
+      console.log('🎯 getGridPosition result:', centerGridPos);
+
+      if (!centerGridPos) {
+        console.warn('❌ Center position is out of bounds - cannot place block');
         // Invalid - spring back
         translateX.value = withSpring(0);
         translateY.value = withSpring(0);
@@ -119,17 +190,72 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
         return;
       }
 
-      const isValid = checkCollision(block.shape, gridPos.row, gridPos.col);
+      // Convert center-based grid position to top-left placement position
+      // Shapes are placed starting from their top-left corner
+      const topLeftRow = centerGridPos.row - Math.floor(shapeHeight / 2);
+      const topLeftCol = centerGridPos.col - Math.floor(shapeWidth / 2);
 
-      if (isValid) {
-        const success = placeBlock(block.id, gridPos.row, gridPos.col);
-        if (success) {
-          // Block placed successfully - fade out
-          opacity.value = withSpring(0);
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          setIsPlaced(true);
-          return;
+      // Debug logging
+      if (__DEV__) {
+        console.log('Placement attempt:', {
+          centerGridPos,
+          topLeftRow,
+          topLeftCol,
+          shapeSize: `${shapeWidth}x${shapeHeight}`,
+          blockId: block.id,
+        });
+      }
+
+      // Check bounds first - top-left must be valid
+      if (topLeftRow < 0 || topLeftCol < 0) {
+        if (__DEV__) {
+          console.log('Placement failed: top-left out of bounds (negative)');
         }
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+        scale.value = withSpring(1);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        return;
+      }
+
+      const isValid = checkCollision(block.shape, topLeftRow, topLeftCol);
+
+      if (__DEV__) {
+        console.log('Collision check result:', isValid);
+        if (!isValid) {
+          console.log('Collision check failed - block cannot be placed at this position');
+        }
+      }
+
+      if (!isValid) {
+        // Invalid - spring back
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+        scale.value = withSpring(1);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        return;
+      }
+
+      // Collision check passed, attempt to place
+      const success = placeBlock(block.id, topLeftRow, topLeftCol);
+      if (__DEV__) {
+        console.log('Place block result:', success);
+        if (!success) {
+          console.log('PlaceBlock returned false even though collision check passed');
+        }
+      }
+
+      if (success) {
+        // Block placed successfully - fade out
+        opacity.value = withSpring(0);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setIsPlaced(true);
+        return;
+      }
+
+      // Placement failed even though collision check passed
+      if (__DEV__) {
+        console.warn('Placement failed unexpectedly');
       }
 
       // Invalid - spring back
@@ -142,35 +268,80 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
       boardMeasurements,
       block.id,
       block.shape,
+      blockWidthPx,
+      blockHeightPx,
+      shapeWidth,
+      shapeHeight,
       checkCollision,
       placeBlock,
       translateX,
       translateY,
       scale,
       opacity,
+      initialPosition,
     ]
   );
 
   /**
-   * Pan gesture handler
+   * Handle layout to track initial position
+   */
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const { x, y, width, height } = event.nativeEvent.layout;
+      console.log('📐 Layout measured:', { x, y, width, height, blockId: block.id });
+      setInitialPosition({ x, y, width, height });
+    },
+    [block.id]
+  );
+
+  /**
+   * Pan gesture handler with center-based snapping
    */
   const panGesture = Gesture.Pan()
     .onStart(() => {
+      console.log('🟢 Gesture STARTED - initialPosition:', initialPosition);
+      if (!initialPosition) {
+        console.warn('⚠️ Cannot start drag: initialPosition not set');
+        return;
+      }
+      console.log('✅ Starting drag with initialPosition:', initialPosition);
       // Scale up slightly when picked up
       scale.value = withSpring(1.1);
+      // Apply visual offset to raise block above finger
+      translateY.value = DRAG_OFFSET_Y;
     })
     .onUpdate((event) => {
-      translateX.value = event.translationX;
-      translateY.value = event.translationY;
+      console.log('👻 onUpdate CALLED:', {
+        translationX: event.translationX,
+        translationY: event.translationY,
+        absoluteX: event.absoluteX,
+        absoluteY: event.absoluteY,
+      });
 
-      // Calculate absolute position for collision detection
-      // Note: In a real scenario, you'd need to get the block's initial position
-      // For now, we'll use the translation directly
+      // Apply translation relative to start position, with offset
+      translateX.value = event.translationX;
+      translateY.value = DRAG_OFFSET_Y + event.translationY;
+
+      // Update ghost preview using center-based calculation with absolute positions
       runOnJS(updateGhost)(event.absoluteX, event.absoluteY);
     })
     .onEnd((event) => {
-      // Try to place the block
-      runOnJS(attemptPlacement)(event.absoluteX, event.absoluteY);
+      console.log('🔴 Gesture ENDED - translation:', {
+        x: event.translationX,
+        y: event.translationY,
+        absoluteX: event.absoluteX,
+        absoluteY: event.absoluteY,
+      });
+      console.log('📞 About to call attemptPlacement via runOnJS');
+      // Try to place the block using center-based calculation
+      // Pass both translation and absolute positions
+      runOnJS(attemptPlacement)(
+        event.translationX,
+        event.translationY,
+        event.absoluteX,
+        event.absoluteY
+      );
+      console.log('📞 Called attemptPlacement, now calling onGhostUpdate');
       runOnJS(onGhostUpdate)(null);
     });
 
@@ -213,6 +384,16 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
     return cells;
   };
 
+  // Log on render (must be before early return)
+  useEffect(() => {
+    console.log('🎨 DraggableBlock rendered:', {
+      blockId: block.id,
+      shapeSize: `${shapeWidth}x${shapeHeight}`,
+      blockSize: `${blockWidthPx}x${blockHeightPx}`,
+      hasInitialPosition: !!initialPosition,
+    });
+  }, [block.id, shapeWidth, shapeHeight, blockWidthPx, blockHeightPx, initialPosition]);
+
   // Don't render if already placed
   if (isPlaced) {
     return null;
@@ -221,11 +402,12 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
   return (
     <GestureDetector gesture={panGesture}>
       <Animated.View
+        onLayout={handleLayout}
         style={[
           styles.container,
           {
-            width: blockWidth,
-            height: blockHeight,
+            width: blockWidthPx,
+            height: blockHeightPx,
           },
           animatedStyle,
         ]}

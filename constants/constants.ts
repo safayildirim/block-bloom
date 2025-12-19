@@ -7,6 +7,7 @@ export const BOARD_SIZE = 8;
 export const CELL_SIZE = 40;
 export const GAP = 2;
 export const GRID_PADDING = 16;
+export const DRAG_OFFSET_Y = 10; // Visual offset to raise block above finger during drag
 
 /**
  * Colors for different block types
