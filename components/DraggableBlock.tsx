@@ -3,30 +3,32 @@
  * Handles drag gestures for block pieces with collision detection
  */
 
-import { convertToGridPosition } from '@/components/GameBoard';
-import { CELL_SIZE, GAP, getShapeDimensions } from '@/constants/constants';
-import type { Block, BoardMeasurements } from '@/constants/types';
-import { useGameStore } from '@/store/useGameStore';
-import * as Haptics from 'expo-haptics';
-import React, { useCallback, useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { convertToGridPosition } from "@/components/GameBoard";
+import { CELL_SIZE, GAP, getShapeDimensions } from "@/constants/constants";
+import type { Block, BoardMeasurements } from "@/constants/types";
+import { useGameStore } from "@/store/useGameStore";
+import * as Haptics from "expo-haptics";
+import React, { useCallback, useMemo } from "react";
+import { StyleSheet, View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
-    runOnJS,
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring,
-} from 'react-native-reanimated';
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 
 interface DraggableBlockProps {
   block: Block;
   boardMeasurements: BoardMeasurements | null;
-  onGhostUpdate: (ghost: {
-    row: number;
-    col: number;
-    shape: number[][];
-    isValid: boolean;
-  } | null) => void;
+  onGhostUpdate: (
+    ghost: {
+      row: number;
+      col: number;
+      shape: number[][];
+      isValid: boolean;
+    } | null
+  ) => void;
 }
 
 export const DraggableBlock: React.FC<DraggableBlockProps> = ({
@@ -35,15 +37,15 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
   onGhostUpdate,
 }) => {
   const { checkCollision, placeBlock } = useGameStore();
-  
+
   // Animated values for position
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
 
-  // Track if block was successfully placed
-  const isPlaced = useSharedValue(false);
+  // Track if block was successfully placed (using React state, not shared value)
+  const [isPlaced, setIsPlaced] = React.useState(false);
 
   // Get block dimensions
   const { width: shapeWidth, height: shapeHeight } = useMemo(
@@ -65,15 +67,19 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
         return;
       }
 
-      const gridPos = convertToGridPosition(absoluteX, absoluteY, boardMeasurements);
-      
+      const gridPos = convertToGridPosition(
+        absoluteX,
+        absoluteY,
+        boardMeasurements
+      );
+
       if (!gridPos) {
         onGhostUpdate(null);
         return;
       }
 
       const isValid = checkCollision(block.shape, gridPos.row, gridPos.col);
-      
+
       onGhostUpdate({
         row: gridPos.row,
         col: gridPos.col,
@@ -89,25 +95,60 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
    */
   const attemptPlacement = useCallback(
     (absoluteX: number, absoluteY: number) => {
-      if (!boardMeasurements) return false;
+      if (!boardMeasurements) {
+        // Invalid - spring back
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+        scale.value = withSpring(1);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        return;
+      }
 
-      const gridPos = convertToGridPosition(absoluteX, absoluteY, boardMeasurements);
-      
-      if (!gridPos) return false;
+      const gridPos = convertToGridPosition(
+        absoluteX,
+        absoluteY,
+        boardMeasurements
+      );
+
+      if (!gridPos) {
+        // Invalid - spring back
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+        scale.value = withSpring(1);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        return;
+      }
 
       const isValid = checkCollision(block.shape, gridPos.row, gridPos.col);
-      
+
       if (isValid) {
         const success = placeBlock(block.id, gridPos.row, gridPos.col);
         if (success) {
+          // Block placed successfully - fade out
+          opacity.value = withSpring(0);
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          return true;
+          setIsPlaced(true);
+          return;
         }
       }
-      
-      return false;
+
+      // Invalid - spring back
+      translateX.value = withSpring(0);
+      translateY.value = withSpring(0);
+      scale.value = withSpring(1);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     },
-    [boardMeasurements, block.id, block.shape, checkCollision, placeBlock]
+    [
+      boardMeasurements,
+      block.id,
+      block.shape,
+      checkCollision,
+      placeBlock,
+      translateX,
+      translateY,
+      scale,
+      opacity,
+    ]
   );
 
   /**
@@ -121,7 +162,7 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
     .onUpdate((event) => {
       translateX.value = event.translationX;
       translateY.value = event.translationY;
-      
+
       // Calculate absolute position for collision detection
       // Note: In a real scenario, you'd need to get the block's initial position
       // For now, we'll use the translation directly
@@ -129,21 +170,8 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
     })
     .onEnd((event) => {
       // Try to place the block
-      const placed = attemptPlacement(event.absoluteX, event.absoluteY);
-      
-      if (placed) {
-        // Block placed successfully - hide it
-        isPlaced.value = true;
-        opacity.value = withSpring(0);
-        runOnJS(onGhostUpdate)(null);
-      } else {
-        // Invalid placement - spring back
-        translateX.value = withSpring(0);
-        translateY.value = withSpring(0);
-        scale.value = withSpring(1);
-        runOnJS(onGhostUpdate)(null);
-        runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
-      }
+      runOnJS(attemptPlacement)(event.absoluteX, event.absoluteY);
+      runOnJS(onGhostUpdate)(null);
     });
 
   /**
@@ -186,7 +214,7 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
   };
 
   // Don't render if already placed
-  if (isPlaced.value) {
+  if (isPlaced) {
     return null;
   }
 
@@ -210,15 +238,14 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    position: 'relative',
+    position: "relative",
   },
   cell: {
-    position: 'absolute',
+    position: "absolute",
     width: CELL_SIZE,
     height: CELL_SIZE,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
 });
-
