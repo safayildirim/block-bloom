@@ -84,9 +84,6 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
       offsetX: number,
       offsetY: number
     ) => {
-      // Note: we're disabling verbose logging to reduce noise during drag
-      // but keeping the logic intact
-
       if (!boardMeasurements || !initialPosition) {
         onGhostUpdate(null);
         return;
@@ -155,8 +152,6 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
    */
   const attemptPlacement = useCallback(
     (
-      translationX: number,
-      translationY: number,
       absoluteX: number,
       absoluteY: number,
       offsetX: number,
@@ -318,8 +313,6 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
       console.log("🔴 Gesture ENDED");
       // Try to place the block
       runOnJS(attemptPlacement)(
-        event.translationX,
-        event.translationY,
         event.absoluteX,
         event.absoluteY,
         touchOffsetX.value,

@@ -3,16 +3,16 @@
  * Expo Router: app/(tabs)/index.tsx
  */
 
-import {GameBoard} from "@/components/GameBoard";
-import type {BoardMeasurements} from "@/constants/types";
-import {DraggableBlock} from "@/components/DraggableBlock";
-import {useGameStore} from "@/store/useGameStore";
-import React, {useState} from "react";
-import {Pressable, StyleSheet, Text, View} from "react-native";
-import {GestureHandlerRootView} from "react-native-gesture-handler";
+import { GameBoard } from "@/components/GameBoard";
+import type { BoardMeasurements } from "@/constants/types";
+import { DraggableBlock } from "@/components/DraggableBlock";
+import { useGameStore } from "@/store/useGameStore";
+import React, { useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 export default function GameScreen() {
-  const {score, highScore, isGameOver, resetGame, currentBlocks} =
+  const { score, highScore, isGameOver, resetGame, currentBlocks } =
     useGameStore();
   const [boardMeasurements, setBoardMeasurements] =
     useState<BoardMeasurements | null>(null);
@@ -47,14 +47,12 @@ export default function GameScreen() {
 
         {/* Game Board */}
         <View style={styles.boardContainer}>
-          <GameBoard onLayout={handleBoardLayout} ghostPreview={ghostPreview}/>
+          <GameBoard onLayout={handleBoardLayout} ghostPreview={ghostPreview} />
         </View>
 
         {/* Block Tray with Draggable Blocks */}
         <View style={styles.tray}>
-          <Text style={styles.trayLabel}>
-            Drag blocks to the grid
-          </Text>
+          <Text style={styles.trayLabel}>Drag blocks to the grid</Text>
           <View style={styles.blockContainer}>
             {currentBlocks.map((block) => (
               <View key={block.id} style={styles.blockWrapper}>

@@ -38,4 +38,3 @@ export interface BoardMeasurements {
   width: number;
   height: number;
 }
-

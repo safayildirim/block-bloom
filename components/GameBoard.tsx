@@ -4,12 +4,17 @@
  * Performance is good enough for an 8x8 grid
  */
 
-import {BOARD_SIZE, CELL_SIZE, GAP, GRID_PADDING,} from "@/constants/constants";
-import type {BoardMeasurements} from "@/constants/types";
-import {useGameStore} from "@/store/useGameStore";
-import {getGridPosition} from "@/utils/gameLogic";
-import React, {useCallback, useRef, useState} from "react";
-import {StyleSheet, View} from "react-native";
+import {
+  BOARD_SIZE,
+  CELL_SIZE,
+  GAP,
+  GRID_PADDING,
+} from "@/constants/constants";
+import type { BoardMeasurements } from "@/constants/types";
+import { useGameStore } from "@/store/useGameStore";
+import { getGridPosition } from "@/utils/gameLogic";
+import React, { useCallback, useRef, useState } from "react";
+import { StyleSheet, View } from "react-native";
 
 interface GameBoardProps {
   onLayout?: (measurements: BoardMeasurements) => void;
@@ -28,9 +33,9 @@ const GHOST_VALID_COLOR = "rgba(76, 209, 196, 0.5)";
 const GHOST_INVALID_COLOR = "rgba(255, 107, 107, 0.5)";
 
 export const GameBoard: React.FC<GameBoardProps> = ({
-                                                      onLayout,
-                                                      ghostPreview,
-                                                    }) => {
+  onLayout,
+  ghostPreview,
+}) => {
   const grid = useGameStore((state: any) => state.grid);
   const viewRef = useRef<View>(null);
   const [, setMeasurements] = useState<BoardMeasurements>({
@@ -42,7 +47,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
 
   const handleLayout = useCallback(() => {
     viewRef.current?.measure((_x, _y, width, height, pageX, pageY) => {
-      const newMeasurements = {x: pageX, y: pageY, width, height};
+      const newMeasurements = { x: pageX, y: pageY, width, height };
       setMeasurements(newMeasurements);
       onLayout?.(newMeasurements);
     });
@@ -55,9 +60,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     row: number,
     col: number
   ): { isGhost: boolean; isValid: boolean } => {
-    if (!ghostPreview) return {isGhost: false, isValid: false};
+    if (!ghostPreview) return { isGhost: false, isValid: false };
 
-    const {row: ghostRow, col: ghostCol, shape, isValid} = ghostPreview;
+    const { row: ghostRow, col: ghostCol, shape, isValid } = ghostPreview;
 
     for (let shapeRow = 0; shapeRow < shape.length; shapeRow++) {
       for (let shapeCol = 0; shapeCol < shape[shapeRow].length; shapeCol++) {
@@ -66,13 +71,13 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           const targetCol = ghostCol + shapeCol;
 
           if (targetRow === row && targetCol === col) {
-            return {isGhost: true, isValid};
+            return { isGhost: true, isValid };
           }
         }
       }
     }
 
-    return {isGhost: false, isValid: false};
+    return { isGhost: false, isValid: false };
   };
 
   /**
@@ -80,7 +85,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
    */
   const renderCell = (row: number, col: number) => {
     const isFilled = grid[row][col] === 1;
-    const {isGhost, isValid} = isGhostCell(row, col);
+    const { isGhost, isValid } = isGhostCell(row, col);
 
     let cellColor = EMPTY_CELL_COLOR;
     if (isFilled) {

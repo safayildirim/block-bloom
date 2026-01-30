@@ -1,9 +1,14 @@
-import { Canvas, Group, RoundedRect } from '@shopify/react-native-skia';
-import React, { useCallback, useState } from 'react';
-import { LayoutChangeEvent, StyleSheet, View } from 'react-native';
-import { BOARD_SIZE, CELL_SIZE, GAP, GRID_PADDING } from '../constants/constants';
-import { useGameStore } from '@/store/useGameStore';
-import type { BoardMeasurements } from '../constants/types';
+import { Canvas, Group, RoundedRect } from "@shopify/react-native-skia";
+import React, { useCallback, useState } from "react";
+import { LayoutChangeEvent, StyleSheet, View } from "react-native";
+import {
+  BOARD_SIZE,
+  CELL_SIZE,
+  GAP,
+  GRID_PADDING,
+} from "../constants/constants";
+import { useGameStore } from "@/store/useGameStore";
+import type { BoardMeasurements } from "../constants/types";
 
 interface GameBoardProps {
   onLayout?: (measurements: BoardMeasurements) => void;
@@ -15,14 +20,18 @@ interface GameBoardProps {
   } | null;
 }
 
-const CANVAS_SIZE = BOARD_SIZE * CELL_SIZE + (BOARD_SIZE - 1) * GAP + GRID_PADDING * 2;
-const GRID_BG_COLOR = '#1a1a2e';
-const EMPTY_CELL_COLOR = '#0f3460';
-const ACTIVE_CELL_COLOR = '#e94560';
-const GHOST_VALID_COLOR = 'rgba(76, 209, 196, 0.5)';
-const GHOST_INVALID_COLOR = 'rgba(255, 107, 107, 0.5)';
+const CANVAS_SIZE =
+  BOARD_SIZE * CELL_SIZE + (BOARD_SIZE - 1) * GAP + GRID_PADDING * 2;
+const GRID_BG_COLOR = "#1a1a2e";
+const EMPTY_CELL_COLOR = "#0f3460";
+const ACTIVE_CELL_COLOR = "#e94560";
+const GHOST_VALID_COLOR = "rgba(76, 209, 196, 0.5)";
+const GHOST_INVALID_COLOR = "rgba(255, 107, 107, 0.5)";
 
-export const GameBoard: React.FC<GameBoardProps> = ({ onLayout, ghostPreview }) => {
+export const GameBoard: React.FC<GameBoardProps> = ({
+  onLayout,
+  ghostPreview,
+}) => {
   const grid = useGameStore((state: any) => state.grid);
   const [, setMeasurements] = useState<BoardMeasurements>({
     x: 0,
@@ -168,8 +177,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({ onLayout, ghostPreview }) 
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   canvas: {
     width: CANVAS_SIZE,
@@ -204,4 +213,3 @@ export const convertToGridPosition = (
 
   return { row, col };
 };
-

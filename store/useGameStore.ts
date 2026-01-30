@@ -1,11 +1,12 @@
-import { BOARD_SIZE, generateRandomBlocks, POINTS_PER_CELL, POINTS_PER_LINE, } from '@/constants/constants';
-import type { GameState, Grid, Shape } from '@/constants/types';
 import {
-  canPlaceBlock,
-  checkLines,
-  createEmptyGrid,
-} from '@/utils/gameLogic';
-import { create } from 'zustand';
+  BOARD_SIZE,
+  generateRandomBlocks,
+  POINTS_PER_CELL,
+  POINTS_PER_LINE,
+} from "@/constants/constants";
+import type { GameState, Grid, Shape } from "@/constants/types";
+import { canPlaceBlock, checkLines, createEmptyGrid } from "@/utils/gameLogic";
+import { create } from "zustand";
 
 interface GameActions {
   checkCollision: (shape: Shape, gridRow: number, gridCol: number) => boolean;
@@ -23,8 +24,13 @@ type GameStore = GameState & GameActions;
 /**
  * Place a shape on the grid and return the new grid
  */
-const placeShapeOnGrid = (grid: Grid, shape: Shape, gridRow: number, gridCol: number): Grid => {
-  const newGrid = grid.map(row => [...row]);
+const placeShapeOnGrid = (
+  grid: Grid,
+  shape: Shape,
+  gridRow: number,
+  gridCol: number
+): Grid => {
+  const newGrid = grid.map((row) => [...row]);
 
   for (let row = 0; row < shape.length; row++) {
     for (let col = 0; col < shape[row].length; col++) {
@@ -69,21 +75,19 @@ const countShapeCells = (shape: Shape): number => {
 };
 
 export const useGameStore = create<GameStore>((set: any, get: any) => ({
-  // Initial state
   grid: createEmptyGrid(),
   currentBlocks: generateRandomBlocks(3),
   score: 0,
   highScore: 0,
   isGameOver: false,
 
-  // Actions
   checkCollision: (shape: Shape, gridRow: number, gridCol: number) => {
-    const {grid} = get();
+    const { grid } = get();
     return canPlaceBlock(grid, shape, gridRow, gridCol);
   },
 
   placeBlock: (blockId: string, gridRow: number, gridCol: number) => {
-    const {grid, currentBlocks, score, highScore} = get();
+    const { grid, currentBlocks, score, highScore } = get();
 
     // Find the block being placed
     const block = currentBlocks.find((b: any) => b.id === blockId);
@@ -101,7 +105,7 @@ export const useGameStore = create<GameStore>((set: any, get: any) => ({
     const cellsPlaced = countShapeCells(block.shape);
 
     // Check and clear lines
-    const {clearedGrid, linesCleared} = checkLines(newGrid);
+    const { clearedGrid, linesCleared } = checkLines(newGrid);
 
     // Calculate new score
     const earnedScore = calculateScore(cellsPlaced, linesCleared);
@@ -112,7 +116,8 @@ export const useGameStore = create<GameStore>((set: any, get: any) => ({
     const newBlocks = currentBlocks.filter((b: any) => b.id !== blockId);
 
     // If no blocks left, spawn new ones
-    const finalBlocks = newBlocks.length === 0 ? generateRandomBlocks(3) : newBlocks;
+    const finalBlocks =
+      newBlocks.length === 0 ? generateRandomBlocks(3) : newBlocks;
 
     set({
       grid: clearedGrid,
@@ -124,7 +129,7 @@ export const useGameStore = create<GameStore>((set: any, get: any) => ({
     // Check if game is over (after spawning new blocks if needed)
     setTimeout(() => {
       if (!get().canPlaceAnyBlock()) {
-        set({isGameOver: true});
+        set({ isGameOver: true });
       }
     }, 100);
 
@@ -132,21 +137,22 @@ export const useGameStore = create<GameStore>((set: any, get: any) => ({
   },
 
   removeBlockFromHand: (blockId: string) => {
-    const {currentBlocks} = get();
+    const { currentBlocks } = get();
     const newBlocks = currentBlocks.filter((b: any) => b.id !== blockId);
 
     // If no blocks left, spawn new ones
-    const finalBlocks = newBlocks.length === 0 ? generateRandomBlocks(3) : newBlocks;
+    const finalBlocks =
+      newBlocks.length === 0 ? generateRandomBlocks(3) : newBlocks;
 
-    set({currentBlocks: finalBlocks});
+    set({ currentBlocks: finalBlocks });
   },
 
   spawnNewBlocks: () => {
-    set({currentBlocks: generateRandomBlocks(3)});
+    set({ currentBlocks: generateRandomBlocks(3) });
   },
 
   canPlaceAnyBlock: () => {
-    const {grid, currentBlocks} = get();
+    const { grid, currentBlocks } = get();
 
     // Check if any current block can be placed anywhere on the grid
     for (const block of currentBlocks) {
@@ -171,4 +177,3 @@ export const useGameStore = create<GameStore>((set: any, get: any) => ({
     });
   },
 }));
-
