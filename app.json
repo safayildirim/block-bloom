@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "block-blast",
-    "slug": "block-blast",
+    "name": "block-bloom",
+    "slug": "block-bloom",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "blockblast",
+    "scheme": "blockbloom",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.safayildirim.blockblast"
+      "bundleIdentifier": "com.safayildirim.blockbloom"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +21,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.safayildirim.blockblast"
+      "package": "com.safayildirim.blockbloom"
     },
     "web": {
       "output": "static",
@@ -45,6 +45,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "3781c91d-1e19-421c-a4be-726e3d8e6844"
+      }
+    },
+    "owner": "safayildirim"
   }
 }

@@ -24,7 +24,7 @@ export const BLOCK_COLORS = [
 ];
 
 /**
- * Standard Block Blast Shapes
+ * Standard Block Bloom Shapes
  * Each shape is a 2D matrix where 1 represents a filled cell
  */
 export const SHAPES: Shape[] = [

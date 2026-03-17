@@ -1,5 +1,5 @@
 /**
- * Block Blast - Main Game Screen
+ * Block Bloom - Main Game Screen
  * Expo Router: app/(tabs)/index.tsx
  */
 

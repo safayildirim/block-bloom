@@ -1,4 +1,4 @@
-# Block Blast - Expo Puzzle Game
+# Block Bloom - Expo Puzzle Game
 
 A high-performance puzzle game similar to "Block Blast" built with React Native, Expo, and Skia.
 
@@ -34,7 +34,7 @@ npm start
 ## 📁 Project Structure
 
 ```
-block-blast/
+block-bloom/
 ├── app/                      # Expo Router screens
 │   └── (tabs)/
 │       └── index.tsx         # ✅ Main game screen

@@ -21,7 +21,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Block Blast",
+          title: "Block Bloom",
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="cube.fill" color={color} />
           ),
