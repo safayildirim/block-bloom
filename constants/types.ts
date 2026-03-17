@@ -25,6 +25,8 @@ export interface GameState {
   score: number;
   highScore: number;
   isGameOver: boolean;
+  /** Rows/cols currently animating a line-clear. Null when no animation is active. */
+  clearingLines: { rows: number[]; cols: number[] } | null;
 }
 
 export interface DragPosition {

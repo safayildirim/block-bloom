@@ -49,7 +49,7 @@ export function getGridPosition(
     cellSize: CELL_SIZE,
     gap: GAP,
     padding: GRID_PADDING,
-  }
+  },
 ): { row: number; col: number } | null {
   // Convert to relative coordinates within the canvas
   const relativeX = absoluteX - boardLayout.x - blockSize.padding;
@@ -93,7 +93,7 @@ export function getGridPositionFromCenter(
     cellSize: CELL_SIZE,
     gap: GAP,
     padding: GRID_PADDING,
-  }
+  },
 ): { row: number; col: number } | null {
   // Calculate block center point
   // The visual block is offset by dragOffsetY above the finger
@@ -132,7 +132,7 @@ export function canPlaceBlock(
   grid: Grid,
   blockShape: Shape,
   startRow: number,
-  startCol: number
+  startCol: number,
 ): boolean {
   // Iterate through each cell in the block shape
   for (let shapeRow = 0; shapeRow < blockShape.length; shapeRow++) {
@@ -176,20 +176,22 @@ export function canPlaceBlock(
 export function checkLines(grid: Grid): {
   clearedGrid: Grid;
   linesCleared: number;
+  clearedRows: number[];
+  clearedCols: number[];
 } {
   // Create a deep copy of the grid to avoid mutating the original
   const clearedGrid: Grid = grid.map((row) => [...row]);
   let linesCleared = 0;
 
   // Track which rows and columns need to be cleared
-  const rowsToClear: number[] = [];
-  const colsToClear: number[] = [];
+  const clearedRows: number[] = [];
+  const clearedCols: number[] = [];
 
   // Check all rows
   for (let row = 0; row < BOARD_SIZE; row++) {
     const isRowFull = clearedGrid[row].every((cell) => cell === 1);
     if (isRowFull) {
-      rowsToClear.push(row);
+      clearedRows.push(row);
     }
   }
 
@@ -197,18 +199,18 @@ export function checkLines(grid: Grid): {
   for (let col = 0; col < BOARD_SIZE; col++) {
     const isColFull = clearedGrid.every((row) => row[col] === 1);
     if (isColFull) {
-      colsToClear.push(col);
+      clearedCols.push(col);
     }
   }
 
   // Clear rows
-  for (const row of rowsToClear) {
+  for (const row of clearedRows) {
     clearedGrid[row] = Array(BOARD_SIZE).fill(0);
     linesCleared++;
   }
 
   // Clear columns
-  for (const col of colsToClear) {
+  for (const col of clearedCols) {
     for (let row = 0; row < BOARD_SIZE; row++) {
       clearedGrid[row][col] = 0;
     }
@@ -218,6 +220,8 @@ export function checkLines(grid: Grid): {
   return {
     clearedGrid,
     linesCleared,
+    clearedRows,
+    clearedCols,
   };
 }
 

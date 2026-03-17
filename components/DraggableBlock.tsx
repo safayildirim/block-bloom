@@ -32,7 +32,7 @@ interface DraggableBlockProps {
       col: number;
       shape: number[][];
       isValid: boolean;
-    } | null
+    } | null,
   ) => void;
 }
 
@@ -67,7 +67,7 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
   // Get block dimensions
   const { width: shapeWidth, height: shapeHeight } = useMemo(
     () => getShapeDimensions(block.shape),
-    [block.shape]
+    [block.shape],
   );
 
   // Calculate block render size in pixels
@@ -82,7 +82,7 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
       absoluteX: number,
       absoluteY: number,
       offsetX: number,
-      offsetY: number
+      offsetY: number,
     ) => {
       if (!boardMeasurements || !initialPosition) {
         onGhostUpdate(null);
@@ -103,7 +103,7 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
       const centerGridPos = getGridPosition(
         visualBlockCenterX,
         visualBlockCenterY,
-        boardMeasurements
+        boardMeasurements,
       );
 
       if (!centerGridPos) {
@@ -141,7 +141,7 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
       checkCollision,
       onGhostUpdate,
       initialPosition,
-    ]
+    ],
   );
 
   /**
@@ -155,7 +155,7 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
       absoluteX: number,
       absoluteY: number,
       offsetX: number,
-      offsetY: number
+      offsetY: number,
     ) => {
       // Note: we're disabling verbose logging to reduce noise during drag
       // but keeping the logic intact
@@ -181,7 +181,7 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
       const centerGridPos = getGridPosition(
         visualBlockCenterX,
         visualBlockCenterY,
-        boardMeasurements
+        boardMeasurements,
       );
 
       if (!centerGridPos) {
@@ -250,7 +250,7 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
       scale,
       opacity,
       initialPosition,
-    ]
+    ],
   );
 
   /**
@@ -268,7 +268,7 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
       });
       setInitialPosition({ x, y, width, height });
     },
-    [block.id]
+    [block.id],
   );
 
   /**
@@ -277,7 +277,11 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
   /**
    * Pan gesture handler with center-based snapping
    */
+  // Number of pixels outside the block bounds that still trigger the drag
+  const HIT_SLOP = 24;
+
   const panGesture = Gesture.Pan()
+    .hitSlop(HIT_SLOP)
     .onStart((event) => {
       console.log("🟢 Gesture STARTED - initialPosition:", initialPosition);
       if (!initialPosition) {
@@ -285,11 +289,15 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
         return;
       }
 
-      // Capture where the user grabbed relative to the block's origin
-      // event.x/y is relative to the view being touched
-      touchOffsetX.value = event.x;
-      touchOffsetY.value = event.y;
-      console.log("👆 Grab offset:", { x: event.x, y: event.y });
+      // Capture where the user grabbed relative to the block's origin.
+      // event.x/y includes the hitSlop area, so clamp to [0, blockSize]
+      // to ensure the offset stays within valid block bounds.
+      touchOffsetX.value = Math.max(0, Math.min(event.x, blockWidthPx));
+      touchOffsetY.value = Math.max(0, Math.min(event.y, blockHeightPx));
+      console.log("👆 Grab offset (clamped):", {
+        x: touchOffsetX.value,
+        y: touchOffsetY.value,
+      });
 
       // Scale up slightly when picked up
       scale.value = withSpring(1.1);
@@ -306,7 +314,7 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
         event.absoluteX,
         event.absoluteY,
         touchOffsetX.value,
-        touchOffsetY.value
+        touchOffsetY.value,
       );
     })
     .onEnd((event) => {
@@ -316,7 +324,7 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
         event.absoluteX,
         event.absoluteY,
         touchOffsetX.value,
-        touchOffsetY.value
+        touchOffsetY.value,
       );
       runOnJS(onGhostUpdate)(null);
     });
@@ -352,7 +360,7 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
                   left: col * (CELL_SIZE + GAP),
                 },
               ]}
-            />
+            />,
           );
         }
       }

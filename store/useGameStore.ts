@@ -28,7 +28,7 @@ const placeShapeOnGrid = (
   grid: Grid,
   shape: Shape,
   gridRow: number,
-  gridCol: number
+  gridCol: number,
 ): Grid => {
   const newGrid = grid.map((row) => [...row]);
 
@@ -80,6 +80,7 @@ export const useGameStore = create<GameStore>((set: any, get: any) => ({
   score: 0,
   highScore: 0,
   isGameOver: false,
+  clearingLines: null,
 
   checkCollision: (shape: Shape, gridRow: number, gridCol: number) => {
     const { grid } = get();
@@ -105,7 +106,8 @@ export const useGameStore = create<GameStore>((set: any, get: any) => ({
     const cellsPlaced = countShapeCells(block.shape);
 
     // Check and clear lines
-    const { clearedGrid, linesCleared } = checkLines(newGrid);
+    const { clearedGrid, linesCleared, clearedRows, clearedCols } =
+      checkLines(newGrid);
 
     // Calculate new score
     const earnedScore = calculateScore(cellsPlaced, linesCleared);
@@ -119,19 +121,45 @@ export const useGameStore = create<GameStore>((set: any, get: any) => ({
     const finalBlocks =
       newBlocks.length === 0 ? generateRandomBlocks(3) : newBlocks;
 
-    set({
-      grid: clearedGrid,
-      currentBlocks: finalBlocks,
-      score: newScore,
-      highScore: newHighScore,
-    });
+    const hasLineClear = clearedRows.length > 0 || clearedCols.length > 0;
 
-    // Check if game is over (after spawning new blocks if needed)
-    setTimeout(() => {
-      if (!get().canPlaceAnyBlock()) {
-        set({ isGameOver: true });
-      }
-    }, 100);
+    if (hasLineClear) {
+      // Phase 1: show the filled grid with animation markers – do NOT wipe yet
+      set({
+        grid: newGrid, // still fully lit up
+        currentBlocks: finalBlocks,
+        score: newScore,
+        highScore: newHighScore,
+        clearingLines: { rows: clearedRows, cols: clearedCols },
+      });
+
+      // Phase 2: after animation, apply cleared grid
+      setTimeout(() => {
+        set({ grid: clearedGrid, clearingLines: null });
+
+        // Check if game is over after clearing
+        setTimeout(() => {
+          if (!get().canPlaceAnyBlock()) {
+            set({ isGameOver: true });
+          }
+        }, 50);
+      }, 420); // match animation duration in GameBoard
+    } else {
+      set({
+        grid: clearedGrid,
+        currentBlocks: finalBlocks,
+        score: newScore,
+        highScore: newHighScore,
+        clearingLines: null,
+      });
+
+      // Check if game is over
+      setTimeout(() => {
+        if (!get().canPlaceAnyBlock()) {
+          set({ isGameOver: true });
+        }
+      }, 100);
+    }
 
     return true;
   },
@@ -174,6 +202,7 @@ export const useGameStore = create<GameStore>((set: any, get: any) => ({
       currentBlocks: generateRandomBlocks(3),
       score: 0,
       isGameOver: false,
+      clearingLines: null,
     });
   },
 }));
