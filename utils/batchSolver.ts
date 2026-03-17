@@ -119,9 +119,19 @@ export function isBatchSolvable(grid: Grid, shapes: Shape[]): boolean {
   // Base case: all pieces placed successfully
   if (shapes.length === 0) return true;
 
-  // Try each remaining piece in every possible order
+  // Try each remaining piece in every possible order.
+  // Deduplicate: if shapes[i] is structurally identical to shapes[j] (j < i),
+  // skip it — the DFS subtree would be identical, wasting time.
+  const triedKeys = new Set<string>();
+
   for (let i = 0; i < shapes.length; i++) {
     const shape = shapes[i];
+
+    // Fast structural key for dedup (e.g. "1,0|1,1")
+    const key = shape.map((row) => row.join(",")).join("|");
+    if (triedKeys.has(key)) continue;
+    triedKeys.add(key);
+
     const placements = getAllValidPlacements(grid, shape);
 
     for (const { row, col } of placements) {

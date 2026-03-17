@@ -180,163 +180,215 @@ describe("isBatchSolvable", () => {
   });
 
   it("returns false when pieces cannot possibly fit", () => {
-    // Build a board where NO full row or column can be formed, so clears
-    // can't rescue the situation. Leave a diagonal pattern of empty cells —
-    // each empty cell is in a unique row and column, preventing any line clear.
-    const grid = createEmptyGrid();
-    for (let r = 0; r < BOARD_SIZE; r++) {
-      for (let c = 0; c < BOARD_SIZE; c++) {
-        grid[r][c] = 1;
-      }
-    }
-    // Clear one cell per row on a distinct column (diagonal) —
-    // no row or column is fully filled after placing into one of them.
-    // Actually we only need 1 empty cell and a piece that needs 2.
-    // But placing [[1]] at the empty cell would complete both a row and a col
-    // (since all other cells are filled), triggering clears.
-    //
-    // Instead: leave exactly 2 empty cells such that:
-    //   - they are in the same row, so that row has 6 filled + 2 empty
-    //   - every other row is missing one cell to prevent row clears
-    //   - no column is fully filled
-    //
-    // Simplest approach: use a "diagonal gaps" board. Each row r has cell (r, r)
-    // empty. This means every row has 7/8 filled (no full rows) and every column
-    // has 7/8 filled (no full columns). Total empty = 8.
+    // Diagonal-gap board where each row has 1 empty cell on the diagonal.
+    // No row or column is full. A 2×2 shape can't fit since the empty cells
+    // are never adjacent.
     const gridDiag = createEmptyGrid();
     for (let r = 0; r < BOARD_SIZE; r++) {
       for (let c = 0; c < BOARD_SIZE; c++) {
         gridDiag[r][c] = r === c ? 0 : 1;
       }
     }
-    // Now: 8 empty cells on the diagonal. No row or column is full.
-    // Each empty cell is at (r,r). Two diagonal neighbors (r,r) and (r+1,r+1)
-    // are never horizontally or vertically adjacent.
-    //
-    // A 2×2 square needs a 2×2 empty block — which doesn't exist here.
     const twoByTwo: Shape = [
       [1, 1],
       [1, 1],
     ];
-    // Three 2×2 squares is 12 cells, but even one can't be placed.
+    // Even a single 2×2 can't be placed.
     expect(isBatchSolvable(gridDiag, [twoByTwo, twoByTwo, twoByTwo])).toBe(
       false,
     );
   });
 
   it("detects order-dependent solvability (piece A must go before B)", () => {
-    // Construct a scenario where placing a big piece first would block
-    // a second piece, but placing the small piece first works.
-    //
-    // Use a diagonal-gap board so no clears happen:
-    // rows 0-6 fully filled, row 7 empty (8 cells).
-    // But rows 0-6 fully filled = 7 full rows that will clear!
-    //
-    // Instead: rows 0-5 have col 0 empty (no full rows), row 6 has all
-    // cols filled except col 0, row 7 fully empty.
-    // Column 0 has only row 7 filled ⇒ not full. Other cols: rows 0-6
-    // all filled + row 7 = depends. We need to avoid full columns too.
-    //
-    // Simplest: fill ONLY row 7, leave rest empty. Then only 8 cells are
-    // available in the other rows.
-    //
-    // Actually let's just use an almost-empty board with a constrained
-    // space. Fill rows 0-5 entirely, row 6 entirely, leave row 7 empty.
-    // OH WAIT — that gives 7 full rows that all clear.
-    //
-    // Fine, simplest correct approach: empty board, large pieces.
     const grid = createEmptyGrid();
-    // Fill so that only row 7 is empty and row clears don't happen
-    // (no full rows). Actually, fill rows 0-6 with a gap on col 0.
+    // Fill rows 0-6 with a gap on col 0 (prevents row clears).
     for (let r = 0; r < 7; r++) {
       for (let c = 1; c < BOARD_SIZE; c++) {
         grid[r][c] = 1;
       }
-      // col 0 stays 0 — prevents these rows from clearing
     }
-    // Row 7: entirely empty (8 cells)
-    // Col 0: entirely empty (8 cells, rows 0-7)
-    // No row is full, no column is full ⇒ no clears will happen.
-
-    // Available cells: col 0 (8 cells vertical) + row 7 (8 cells, but col 0
-    // overlaps) = 8 + 7 = 15 empty cells total.
-
-    // Pieces: 5-long horizontal + 3-long horizontal. Both can only go in row 7.
+    // Row 7: entirely empty (8 cells). No row/col is full ⇒ no clears.
     const fiveH: Shape = [[1, 1, 1, 1, 1]]; // needs 5 contiguous in a row
     const threeH: Shape = [[1, 1, 1]]; // needs 3 contiguous in a row
 
-    // Row 7 has 8 contiguous cells. 5 + 3 = 8. They fit in some order.
+    // Row 7 has 8 cells. 5 + 3 = 8 exactly. Both orderings work.
     expect(isBatchSolvable(grid, [fiveH, threeH])).toBe(true);
     expect(isBatchSolvable(grid, [threeH, fiveH])).toBe(true);
   });
 
   it("handles the case where first piece placement triggers a clear that unlocks the others", () => {
-    // Row 0: fill cols 0-6 (col 7 empty). Place [[1]] at (0,7) → row 0 full → clears.
-    // Rows 1-7: fill cols 0-4 only so they don't form full rows or columns.
-    // After row 0 clears, row 0 is empty (8 cells).
-    // Now pieces 2 & 3 can be placed in the freshly cleared row 0.
-    //
-    // Without placing piece 1 first, pieces 2 & 3 might not fit if we
-    // make them too wide for the available cols-5..7 in rows 1-7.
     const grid = createEmptyGrid();
     // Row 0: cols 0-6 filled, col 7 empty
     for (let c = 0; c < 7; c++) {
       grid[0][c] = 1;
     }
-    // Rows 1-7: cols 0-4 filled (5 cells each). Cols 5-7 empty.
+    // Rows 1-7: cols 0-4 filled. Cols 5-7 empty.
     for (let r = 1; r < BOARD_SIZE; r++) {
       for (let c = 0; c < 5; c++) {
         grid[r][c] = 1;
       }
     }
 
-    // Piece 1: single cell → place at (0,7) → completes row 0 → row 0 clears
-    // After clear: row 0 = 8 empty cells, rows 1-7 have cols 5-7 empty each
-    // Piece 2: 5-cell horizontal → fits in row 0 (now empty) starting at col 0
-    // Piece 3: 3-cell horizontal → fits in row 0 or in any of rows 1-7 cols 5-7
-    const piece1: Shape = [[1]];
-    const piece2: Shape = [[1, 1, 1, 1, 1]]; // 5 wide — needs a full empty row
+    const piece1: Shape = [[1]]; // completes row 0 → triggers clear
+    const piece2: Shape = [[1, 1, 1, 1, 1]]; // 5 wide — needs cleared row 0
     const piece3: Shape = [[1, 1, 1]];
 
-    // Without placing piece1 first, piece2 (5-wide) can't fit anywhere:
-    // - Row 0 has only col 7 empty (1 cell)
-    // - Rows 1-7 have cols 5-7 empty (only 3 contiguous cells)
-    // Verify that piece2 alone can't be placed on the original board
+    // PROOF 1: piece2 cannot be placed on the original board
     expect(getAllValidPlacements(grid, piece2).length).toBe(0);
 
-    // But the batch IS solvable: place piece1 at (0,7) → clear → then piece2 fits
+    // PROOF 2: after placing piece1 at (0,7) and clearing, piece2 CAN fit
+    const afterPlace = simulatePlacement(cloneBoardState(grid), piece1, 0, 7);
+    const afterClear = clearCompletedLines(afterPlace);
+    // Row 0 should now be empty (cleared)
+    expect(afterClear[0].every((c) => c === 0)).toBe(true);
+    // piece2 should now be placeable on row 0
+    expect(getAllValidPlacements(afterClear, piece2).length).toBeGreaterThan(0);
+
+    // PROOF 3: the batch IS solvable via the clear path
     expect(isBatchSolvable(grid, [piece1, piece2, piece3])).toBe(true);
   });
 
   it("returns false for a truly impossible batch on a near-full board", () => {
     // Board where each row has exactly 2 empty cells at non-adjacent positions.
-    // No single-cell placement can complete any row (requires filling 2 more).
-    // Empty cell pairs are chosen so no column is ever full either.
-    //
-    // Pattern: row r has cells (r, 2*r % 8) and (r, (2*r+1) % 8) empty.
-    // This scatters empties across different columns.
     const grid = createEmptyGrid();
     for (let r = 0; r < BOARD_SIZE; r++) {
       for (let c = 0; c < BOARD_SIZE; c++) {
         grid[r][c] = 1;
       }
-      // Clear 2 cells per row
       grid[r][(2 * r) % BOARD_SIZE] = 0;
       grid[r][(2 * r + 3) % BOARD_SIZE] = 0;
     }
-    // Verify precondition: no row is full, no column is full
+    // Verify precondition: each row has exactly 6 filled cells
     for (let r = 0; r < BOARD_SIZE; r++) {
       const rowSum = grid[r].reduce((a: number, b: number) => a + b, 0);
-      expect(rowSum).toBe(BOARD_SIZE - 2); // 6 filled cells per row
+      expect(rowSum).toBe(BOARD_SIZE - 2);
     }
-
-    // 3 pieces that are each only a single 2×2 square.
-    // No 2×2 block of empty cells exists in this sparse layout.
     const twoByTwo: Shape = [
       [1, 1],
       [1, 1],
     ];
     expect(isBatchSolvable(grid, [twoByTwo, twoByTwo, twoByTwo])).toBe(false);
+  });
+
+  it("never mutates the input grid", () => {
+    const grid = createEmptyGrid();
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < BOARD_SIZE; c++) {
+        grid[r][c] = 1;
+      }
+    }
+    // Take a snapshot
+    const snapshot = JSON.stringify(grid);
+
+    // Call the solver (will explore many branches internally)
+    const shapes: Shape[] = [[[1, 1, 1]], [[1, 1]], [[1]]];
+    isBatchSolvable(grid, shapes);
+
+    // Grid must be unchanged
+    expect(JSON.stringify(grid)).toBe(snapshot);
+  });
+
+  it("handles duplicate pieces efficiently without false results", () => {
+    // 3 identical single-cell pieces on a board with exactly 3 empty cells.
+    // All 3 are identical so dedup should collapse permutations but still
+    // find the solution.
+    const grid = createEmptyGrid();
+    for (let r = 0; r < BOARD_SIZE; r++) {
+      for (let c = 0; c < BOARD_SIZE; c++) {
+        grid[r][c] = 1;
+      }
+    }
+    // Leave 3 cells empty (scattered so no row/col completes)
+    grid[0][0] = 0;
+    grid[2][3] = 0;
+    grid[5][6] = 0;
+
+    const shapes: Shape[] = [[[1]], [[1]], [[1]]];
+    expect(isBatchSolvable(grid, shapes)).toBe(true);
+  });
+
+  it("returns false for duplicate pieces that cannot collectively fit", () => {
+    // Use the diagonal-gap board (same as 'cannot possibly fit' test).
+    // 3 identical 2×2 squares — dedup collapses all 3! permutations into 1
+    // exploration branch. Must still correctly return false.
+    const grid = createEmptyGrid();
+    for (let r = 0; r < BOARD_SIZE; r++) {
+      for (let c = 0; c < BOARD_SIZE; c++) {
+        grid[r][c] = r === c ? 0 : 1;
+      }
+    }
+    const twoByTwo: Shape = [
+      [1, 1],
+      [1, 1],
+    ];
+    // All 3 shapes are identical — dedup should NOT cause a false positive
+    expect(isBatchSolvable(grid, [twoByTwo, twoByTwo, twoByTwo])).toBe(false);
+  });
+
+  it("step-by-step manual simulation matches solver result", () => {
+    // Manually construct a scenario and verify each step.
+    const grid = createEmptyGrid();
+    // Fill row 3 except col 5
+    for (let c = 0; c < BOARD_SIZE; c++) {
+      if (c !== 5) grid[3][c] = 1;
+    }
+    // Rest of the board is empty.
+
+    const pieceA: Shape = [[1]]; // fill (3,5) → completes row 3 → clear
+    const pieceB: Shape = [[1, 1, 1, 1, 1, 1, 1, 1]]; // 8-wide: needs a full empty row
+    const pieceC: Shape = [[1, 1]]; // simple 2-cell
+
+    // Before pieceA: pieceB (8-wide) can't fit anywhere because row 3
+    // partially blocks and no other row has 8-wide space blocked by row 3.
+    // Actually, rows 0-2 and 4-7 are empty, so pieceB CAN fit there.
+    // Let me adjust: fill more rows so only row 3 matters.
+    for (let r = 0; r < BOARD_SIZE; r++) {
+      if (r === 3) continue;
+      // Fill all rows except leave col 0 empty (prevents full row clear)
+      for (let c = 1; c < BOARD_SIZE; c++) {
+        grid[r][c] = 1;
+      }
+    }
+    // Now: rows 0-2,4-7 each have cols 1-7 filled (col 0 empty, 7 filled).
+    // Row 3 has cols 0-4,6-7 filled (col 5 empty, 7 filled).
+    // No row is full. Col 0 has all but row 3 empty. Cols 1-4,6-7 have
+    // row 3 filled + rows 0-2,4-7 filled = all 8 filled → these columns
+    // ARE full! They would clear!
+    // Hmm that's not what I want. Let me simplify.
+
+    // Start fresh with a cleaner scenario.
+    const grid2 = createEmptyGrid();
+    // Row 0: fill cols 0-6, leave col 7 empty
+    for (let c = 0; c < 7; c++) grid2[0][c] = 1;
+    // All other rows: empty.
+
+    // Step 1: place [[1]] at (0,7) → row 0 becomes full → clears
+    const stepA = simulatePlacement(cloneBoardState(grid2), [[1]], 0, 7);
+    expect(stepA[0].every((c) => c === 1)).toBe(true); // row 0 now full
+    const afterClearA = clearCompletedLines(stepA);
+    expect(afterClearA[0].every((c) => c === 0)).toBe(true); // row 0 cleared
+
+    // Step 2: place 5-wide on row 0 (now empty)
+    const fiveWide: Shape = [[1, 1, 1, 1, 1]];
+    expect(getAllValidPlacements(afterClearA, fiveWide).length).toBeGreaterThan(
+      0,
+    );
+    const stepB = simulatePlacement(
+      cloneBoardState(afterClearA),
+      fiveWide,
+      0,
+      0,
+    );
+    const afterClearB = clearCompletedLines(stepB);
+
+    // Step 3: place 2-wide somewhere on the mostly empty board
+    const twoWide: Shape = [[1, 1]];
+    expect(getAllValidPlacements(afterClearB, twoWide).length).toBeGreaterThan(
+      0,
+    );
+
+    // Solver should agree
+    expect(isBatchSolvable(grid2, [[[1]], fiveWide, twoWide])).toBe(true);
   });
 });
 
@@ -385,7 +437,6 @@ describe("generateNextPieceBatch", () => {
   it("fallback works on a nearly full board", () => {
     // Leave just enough room for very small shapes
     const emptyCells: { row: number; col: number }[] = [];
-    // Leave bottom-right 3x3 corner empty (9 cells) — enough for small shapes
     for (let r = 5; r < BOARD_SIZE; r++) {
       for (let c = 5; c < BOARD_SIZE; c++) {
         emptyCells.push({ row: r, col: c });
@@ -396,5 +447,19 @@ describe("generateNextPieceBatch", () => {
 
     // Should still return 3 blocks (via fallback if needed)
     expect(blocks.length).toBe(3);
+  });
+
+  it("does not mutate the input grid", () => {
+    const grid = createEmptyGrid();
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < BOARD_SIZE; c++) {
+        grid[r][c] = 1;
+      }
+    }
+    const snapshot = JSON.stringify(grid);
+
+    generateNextPieceBatch(grid);
+
+    expect(JSON.stringify(grid)).toBe(snapshot);
   });
 });
