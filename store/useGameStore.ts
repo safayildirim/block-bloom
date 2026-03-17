@@ -6,6 +6,7 @@ import {
 } from "@/constants/constants";
 import type { GameState, Grid, Shape } from "@/constants/types";
 import { canPlaceBlock, checkLines, createEmptyGrid } from "@/utils/gameLogic";
+import { generateNextPieceBatch } from "@/utils/pieceGeneration";
 import { create } from "zustand";
 
 interface GameActions {
@@ -118,8 +119,9 @@ export const useGameStore = create<GameStore>((set: any, get: any) => ({
     const newBlocks = currentBlocks.filter((b: any) => b.id !== blockId);
 
     // If no blocks left, spawn new ones
+    // When all pieces placed, generate a fair new batch using the post-clear board
     const finalBlocks =
-      newBlocks.length === 0 ? generateRandomBlocks(3) : newBlocks;
+      newBlocks.length === 0 ? generateNextPieceBatch(clearedGrid) : newBlocks;
 
     const hasLineClear = clearedRows.length > 0 || clearedCols.length > 0;
 
@@ -168,15 +170,17 @@ export const useGameStore = create<GameStore>((set: any, get: any) => ({
     const { currentBlocks } = get();
     const newBlocks = currentBlocks.filter((b: any) => b.id !== blockId);
 
-    // If no blocks left, spawn new ones
+    // If no blocks left, generate a fair batch against current board
+    const { grid } = get();
     const finalBlocks =
-      newBlocks.length === 0 ? generateRandomBlocks(3) : newBlocks;
+      newBlocks.length === 0 ? generateNextPieceBatch(grid) : newBlocks;
 
     set({ currentBlocks: finalBlocks });
   },
 
   spawnNewBlocks: () => {
-    set({ currentBlocks: generateRandomBlocks(3) });
+    const { grid } = get();
+    set({ currentBlocks: generateNextPieceBatch(grid) });
   },
 
   canPlaceAnyBlock: () => {
