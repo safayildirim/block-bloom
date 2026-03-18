@@ -10,8 +10,8 @@
  * only 3 pieces per batch.
  */
 
-import { BOARD_SIZE } from "@/constants/constants";
-import type { Grid, Shape, CellState } from "@/constants/types";
+import { BOARD_SIZE } from "../constants/constants";
+import type { Grid, Shape, CellState } from "../constants/types";
 import { canPlaceBlock, checkLines } from "./gameLogic";
 
 // ---------------------------------------------------------------------------

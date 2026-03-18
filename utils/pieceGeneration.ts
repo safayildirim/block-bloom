@@ -12,8 +12,8 @@
  * entry point when board state is available.
  */
 
-import { BLOCK_COLORS, SHAPES } from "@/constants/constants";
-import type { Block, Grid, Shape } from "@/constants/types";
+import { BLOCK_COLORS, SHAPES } from "../constants/constants";
+import type { Block, Grid, Shape } from "../constants/types";
 import { isBatchSolvable, getAllValidPlacements } from "./batchSolver";
 
 // ---------------------------------------------------------------------------
@@ -122,7 +122,7 @@ export function generateNextPieceBatch(grid: Grid, count = 3): Block[] {
  * on the current board. Tries easy shapes first, then all shapes.
  * As a last resort, fills remaining slots with the single-cell shape.
  */
-function emergencyFallback(grid: Grid, count: number): Block[] {
+export function emergencyFallback(grid: Grid, count: number): Block[] {
   const selected: Shape[] = [];
 
   // Try easy shapes first
