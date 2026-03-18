@@ -1,100 +1,139 @@
 /**
- * Refined Weighted Piece Generation
- * 
- * Uses the Hero Shape concept and probability normalization to avoid 
- * "Fake Balancing" and "Over-rescuing" issues.
+ * Archetype-Based Weighted Piece Generation
+ *
+ * Instead of sampling 3 shapes independently, selects a batch archetype
+ * (e.g., "2 medium + 1 small") then fills each slot from the matching
+ * tier pool using board-aware weights. The DFS solver validates solvability.
  */
 
 import { SHAPES, BLOCK_COLORS } from "../constants/constants";
 import type { Block, Grid, Shape } from "../constants/types";
 import { isBatchSolvable } from "./batchSolver";
 import { analyzeBoardState, type BoardAnalysis } from "./boardAnalysis";
-import {
-  getAllShapeDifficulties,
-  computeBatchDifficulty,
-  type ShapeDifficulty,
-} from "./shapeDifficulty";
-import {
-  getGenerationContext,
-  recordBatch,
-  type GenerationContext,
-} from "./generationContext";
+import { getAllShapeDifficulties, computeBatchDifficulty, type ShapeDifficulty } from "./shapeDifficulty";
+import { getGenerationContext, recordBatch, type GenerationContext } from "./generationContext";
 import { emergencyFallback } from "./pieceGeneration";
-import { GENERATION_CONFIG } from "./generationConstants";
+import {
+  ARCHETYPE_WEIGHTS,
+  ARCHETYPES,
+  LINE_HUNTER_MIN_NEAR_COMPLETE,
+  MAX_RESCUE_ATTEMPTS,
+  MAX_WEIGHTED_ATTEMPTS,
+  SMOOTHING,
+  WITHIN_TIER,
+  type ArchetypeName,
+  type SlotTier,
+} from "./generationConstants";
 
-// ╔═════════════════════════════════════════════════════════════════════════╗
-// ║  Weight Calculation                                                    ║
-// ╚═════════════════════════════════════════════════════════════════════════╝
+// ---------------------------------------------------------------------------
+// Archetype Selection
+// ---------------------------------------------------------------------------
 
-/**
- * Calculate the selection weight for a single shape given the current context.
- */
-export function calculateShapeWeight(
-  shapeMeta: ShapeDifficulty,
+export function selectArchetype(
   analysis: BoardAnalysis,
   context: GenerationContext,
+): ArchetypeName {
+  const danger = analysis.danger as keyof typeof ARCHETYPE_WEIGHTS;
+  const baseWeights: Record<ArchetypeName, number> = { ...ARCHETYPE_WEIGHTS[danger] };
+
+  // Line-hunter gate: redistribute if not enough near-complete lines
+  const nearComplete = analysis.nearCompleteRows + analysis.nearCompleteCols;
+  if (nearComplete < LINE_HUNTER_MIN_NEAR_COMPLETE) {
+    const freed = baseWeights["line-hunter"];
+    baseWeights["line-hunter"] = 0;
+    const remaining = (Object.entries(baseWeights) as [ArchetypeName, number][]).filter(
+      ([name]) => name !== "line-hunter" && baseWeights[name] > 0,
+    );
+    const remainingTotal = remaining.reduce((sum, [, w]) => sum + w, 0);
+    if (remainingTotal > 0) {
+      for (const [name] of remaining) {
+        baseWeights[name as ArchetypeName] +=
+          freed * (baseWeights[name as ArchetypeName] / remainingTotal);
+      }
+    }
+  }
+
+  // Smoothing override: suppress challenge + blockbuster after hard streaks
+  if (context.consecutiveHardBatches >= SMOOTHING.HARD_STREAK_THRESHOLD) {
+    const freed = baseWeights.challenge + baseWeights.blockbuster;
+    baseWeights.challenge = 0;
+    baseWeights.blockbuster = 0;
+    baseWeights.builder += freed * SMOOTHING.REDISTRIBUTION.builder;
+    baseWeights.workhorse += freed * SMOOTHING.REDISTRIBUTION.workhorse;
+  }
+
+  // Weighted random selection
+  const entries = Object.entries(baseWeights) as [ArchetypeName, number][];
+  const total = entries.reduce((sum, [, w]) => sum + w, 0);
+  let roll = Math.random() * total;
+  for (const [name, weight] of entries) {
+    roll -= weight;
+    if (roll <= 0) return name;
+  }
+  return "workhorse";
+}
+
+// ---------------------------------------------------------------------------
+// Within-Tier Slot Filling
+// ---------------------------------------------------------------------------
+
+function getPoolForSlot(slotTier: SlotTier): ShapeDifficulty[] {
+  const all = getAllShapeDifficulties();
+  if (slotTier === "line") {
+    return all.filter((m) => m.isLine);
+  }
+  const pool = all.filter((m) => m.tier === slotTier);
+  // Empty tier fallback: large → medium → small
+  if (pool.length === 0) {
+    if (slotTier === "large") return all.filter((m) => m.tier === "medium");
+    if (slotTier === "medium") return all.filter((m) => m.tier === "small");
+  }
+  return pool;
+}
+
+export function fillSlot(
+  slotTier: SlotTier,
+  analysis: BoardAnalysis,
+  previousShapeIndices: number[],
 ): number {
-  const config = GENERATION_CONFIG.WEIGHTS;
-  let weight = 1.0;
+  const pool = getPoolForSlot(slotTier);
+  if (pool.length === 0) return 0; // absolute fallback to 1x1
 
-  // 1. Danger-tier modifier
-  const dangerMods = config.DANGER[analysis.danger] || config.DANGER.low;
-  weight *= dangerMods[shapeMeta.tier];
+  const weights = pool.map((meta) => {
+    let weight = 1.0;
 
-  // 2. Hero Bonus (the "true" rescue)
-  // Only applies in high/critical danger to ensure the player gets a rescue.
-  if ((analysis.danger === "high" || analysis.danger === "critical") && 
-      GENERATION_CONFIG.HERO_SHAPE_INDICES.includes(shapeMeta.shapeIndex)) {
-    weight *= config.HERO_BONUS;
-  }
-
-  // 3. Difficulty-smoothing
-  if (context.consecutiveHardBatches > 0) {
-    const streak = context.consecutiveHardBatches;
-    if (shapeMeta.tier === "easy") {
-      weight *= (1 + config.SMOOTHING.EASY_BOOST_PER_HARD_BATCH * streak);
-    } else if (shapeMeta.tier === "hard") {
-      weight *= Math.max(0.1, 1 - config.SMOOTHING.HARD_SUPPRESS_PER_HARD_BATCH * streak);
+    // Compactness bonus at high/critical danger
+    if (analysis.danger === "high" || analysis.danger === "critical") {
+      weight += WITHIN_TIER.COMPACTNESS_BONUS * meta.compactness;
     }
-  }
 
-  // 4. Line-shape bonus (more nuance)
-  if (shapeMeta.isLine) {
-    const nearCompleteCount = analysis.nearCompleteRows + analysis.nearCompleteCols;
-    if (nearCompleteCount > 0) {
-      weight += config.LINE_CLEAR_OPPORTUNITY_BONUS * Math.min(nearCompleteCount, 3);
+    // Line-clear opportunity
+    if (meta.isLine) {
+      const nearComplete = analysis.nearCompleteRows + analysis.nearCompleteCols;
+      weight += WITHIN_TIER.LINE_CLEAR_BONUS * Math.min(nearComplete, WITHIN_TIER.LINE_CLEAR_CAP);
     }
-  }
 
-  // 5. Compactness bonus at high danger
-  // Compact shapes are easier to fit in fragments.
-  if (analysis.danger === "high" || analysis.danger === "critical") {
-    weight += shapeMeta.compactness * config.COMPACTNESS_BONUS;
-  }
+    // Anti-repetition
+    if (previousShapeIndices.includes(meta.shapeIndex)) {
+      weight *= WITHIN_TIER.ANTI_REPETITION_FACTOR;
+    }
 
-  // 6. Anti-triviality floor
-  return Math.max(weight, config.MIN_WEIGHT);
-}
+    return Math.max(weight, WITHIN_TIER.MIN_WEIGHT);
+  });
 
-// ╔═════════════════════════════════════════════════════════════════════════╗
-// ║  Weighted Sampling & Normalization                                      ║
-// ╚═════════════════════════════════════════════════════════════════════════╝
-
-function weightedSampleIndex(weights: number[]): number {
+  // Weighted random selection
   const total = weights.reduce((sum, w) => sum + w, 0);
-  if (total <= 0) return Math.floor(Math.random() * weights.length);
-
-  let r = Math.random() * total;
-  for (let i = 0; i < weights.length; i++) {
-    r -= weights[i];
-    if (r <= 0) return i;
+  let roll = Math.random() * total;
+  for (let i = 0; i < pool.length; i++) {
+    roll -= weights[i];
+    if (roll <= 0) return pool[i].shapeIndex;
   }
-  return weights.length - 1;
+  return pool[pool.length - 1].shapeIndex;
 }
 
-// ╔═════════════════════════════════════════════════════════════════════════╗
-// ║  Main Entry Point                                                      ║
-// ╚═════════════════════════════════════════════════════════════════════════╝
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function makeBlocks(shapes: Shape[]): Block[] {
   return shapes.map((shape, i) => ({
@@ -104,49 +143,78 @@ function makeBlocks(shapes: Shape[]): Block[] {
   }));
 }
 
-/**
- * Generate a fair, weighted batch of pieces that is solvable on the given board.
- */
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ---------------------------------------------------------------------------
+// Main Entry Point
+// ---------------------------------------------------------------------------
+
 export function generateWeightedPieceBatch(grid: Grid, count = 3): Block[] {
   const analysis = analyzeBoardState(grid);
   const context = getGenerationContext();
-  const allMeta = getAllShapeDifficulties();
 
-  // Phase 1: Normal weighted generation
-  for (let attempt = 0; attempt < GENERATION_CONFIG.MAX_WEIGHTED_ATTEMPTS; attempt++) {
-    const weights = allMeta.map(m => calculateShapeWeight(m, analysis, context));
-    const indices: number[] = Array.from({ length: count }, () => weightedSampleIndex(weights));
-    const shapes = indices.map(i => SHAPES[i]);
+  // Phase 1: Archetype generation
+  for (let attempt = 0; attempt < MAX_WEIGHTED_ATTEMPTS; attempt++) {
+    const archetypeName = selectArchetype(analysis, context);
+    const archetype = ARCHETYPES[archetypeName];
+    const slots = count < 3 ? archetype.slots.slice(0, count) : archetype.slots;
+
+    const indices = slots.map((slotTier) =>
+      fillSlot(slotTier, analysis, context.previousBatchShapeIndices),
+    );
+    const shuffledIndices = shuffle(indices);
+    const shapes = shuffledIndices.map((i) => SHAPES[i]);
 
     if (isBatchSolvable(grid, shapes)) {
       recordBatch({
-        difficulty: computeBatchDifficulty(indices),
+        difficulty: computeBatchDifficulty(shuffledIndices),
         usedFallback: false,
         danger: analysis.danger,
+        shapeIndices: shuffledIndices,
       });
       return makeBlocks(shapes);
     }
   }
 
-  // Phase 2: Rescue mode (more aggressive rescue shapes)
+  // Phase 2: Rescue mode (force critical danger)
   const rescueAnalysis: BoardAnalysis = { ...analysis, danger: "critical" };
-  for (let attempt = 0; attempt < GENERATION_CONFIG.MAX_RESCUE_ATTEMPTS; attempt++) {
-    const weights = allMeta.map(m => calculateShapeWeight(m, rescueAnalysis, context));
-    const indices: number[] = Array.from({ length: count }, () => weightedSampleIndex(weights));
-    const shapes = indices.map(i => SHAPES[i]);
+  const rescueContext = getGenerationContext();
+  for (let attempt = 0; attempt < MAX_RESCUE_ATTEMPTS; attempt++) {
+    const archetypeName = selectArchetype(rescueAnalysis, rescueContext);
+    const archetype = ARCHETYPES[archetypeName];
+    const slots = count < 3 ? archetype.slots.slice(0, count) : archetype.slots;
+
+    const indices = slots.map((slotTier) =>
+      fillSlot(slotTier, rescueAnalysis, rescueContext.previousBatchShapeIndices),
+    );
+    const shuffledIndices = shuffle(indices);
+    const shapes = shuffledIndices.map((i) => SHAPES[i]);
 
     if (isBatchSolvable(grid, shapes)) {
       recordBatch({
-        difficulty: computeBatchDifficulty(indices),
+        difficulty: computeBatchDifficulty(shuffledIndices),
         usedFallback: false,
         danger: analysis.danger,
+        shapeIndices: shuffledIndices,
       });
       return makeBlocks(shapes);
     }
   }
 
-  // Phase 3: Emergency
+  // Phase 3: Emergency fallback
   const blocks = emergencyFallback(grid, count);
-  recordBatch({ difficulty: 0.1, usedFallback: true, danger: analysis.danger });
+  recordBatch({
+    difficulty: 0.1,
+    usedFallback: true,
+    danger: analysis.danger,
+    shapeIndices: [],
+  });
   return blocks;
 }

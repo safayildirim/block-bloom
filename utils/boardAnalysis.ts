@@ -8,7 +8,7 @@
 import { BOARD_SIZE, SHAPES } from "../constants/constants";
 import type { Grid, Shape } from "../constants/types";
 import { canPlaceBlock } from "./gameLogic";
-import { DANGER_THRESHOLD } from "./generationConstants";
+import { DANGER_THRESHOLD, type DangerLevel } from "./generationConstants";
 export type { DangerLevel } from "./generationConstants";
 
 export interface BoardAnalysis {

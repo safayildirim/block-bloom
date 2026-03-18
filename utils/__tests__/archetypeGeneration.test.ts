@@ -77,3 +77,74 @@ describe("Generation Context: shapeIndices tracking", () => {
     expect(ctx.previousBatchShapeIndices).toEqual([8, 17, 3]);
   });
 });
+
+// ---- Archetype Selection Tests ----
+
+import { selectArchetype } from "../weightedGeneration";
+import type { BoardAnalysis } from "../boardAnalysis";
+
+function makeMockAnalysis(overrides: Partial<BoardAnalysis> = {}): BoardAnalysis {
+  return {
+    occupiedCells: 0,
+    emptyCells: 64,
+    occupancy: 0,
+    totalPlacementCount: 500,
+    avgPlacementsPerShape: 25,
+    nearCompleteRows: 0,
+    nearCompleteCols: 0,
+    maxRectAvailable: 5,
+    danger: "low",
+    ...overrides,
+  };
+}
+
+describe("Archetype Selection", () => {
+  it("never selects filler at low danger", () => {
+    const analysis = makeMockAnalysis({ danger: "low" });
+    const ctx = getGenerationContext();
+    const counts: Record<string, number> = {};
+    for (let i = 0; i < 500; i++) {
+      const name = selectArchetype(analysis, ctx);
+      counts[name] = (counts[name] ?? 0) + 1;
+    }
+    expect(counts["filler"] ?? 0).toBe(0);
+  });
+
+  it("never selects challenge or blockbuster at critical danger", () => {
+    const analysis = makeMockAnalysis({ danger: "critical" });
+    const ctx = getGenerationContext();
+    const counts: Record<string, number> = {};
+    for (let i = 0; i < 500; i++) {
+      const name = selectArchetype(analysis, ctx);
+      counts[name] = (counts[name] ?? 0) + 1;
+    }
+    expect(counts["challenge"] ?? 0).toBe(0);
+    expect(counts["blockbuster"] ?? 0).toBe(0);
+  });
+
+  it("redistributes line-hunter weight when no near-complete lines", () => {
+    const analysis = makeMockAnalysis({ danger: "low", nearCompleteRows: 0, nearCompleteCols: 0 });
+    const ctx = getGenerationContext();
+    const counts: Record<string, number> = {};
+    for (let i = 0; i < 1000; i++) {
+      const name = selectArchetype(analysis, ctx);
+      counts[name] = (counts[name] ?? 0) + 1;
+    }
+    expect(counts["line-hunter"] ?? 0).toBe(0);
+  });
+
+  it("suppresses challenge and blockbuster after consecutive hard batches", () => {
+    for (let i = 0; i < 3; i++) {
+      recordBatch({ difficulty: 0.8, usedFallback: false, danger: "low", shapeIndices: [6, 9, 10] });
+    }
+    const analysis = makeMockAnalysis({ danger: "low" });
+    const ctx = getGenerationContext();
+    const counts: Record<string, number> = {};
+    for (let i = 0; i < 500; i++) {
+      const name = selectArchetype(analysis, ctx);
+      counts[name] = (counts[name] ?? 0) + 1;
+    }
+    expect(counts["challenge"] ?? 0).toBe(0);
+    expect(counts["blockbuster"] ?? 0).toBe(0);
+  });
+});
