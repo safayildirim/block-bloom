@@ -8,13 +8,8 @@
 import { BOARD_SIZE, SHAPES } from "../constants/constants";
 import type { Grid, Shape } from "../constants/types";
 import { canPlaceBlock } from "./gameLogic";
-import { GENERATION_CONFIG } from "./generationConstants";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export type DangerLevel = "low" | "medium" | "high" | "critical";
+import { DANGER_THRESHOLD } from "./generationConstants";
+export type { DangerLevel } from "./generationConstants";
 
 export interface BoardAnalysis {
   occupiedCells: number;
@@ -116,28 +111,17 @@ function countNearCompleteLines(grid: Grid): {
 function classifyDanger(
   occupancy: number,
   avgPlacements: number,
-  maxSquare: number
-): DangerLevel {
-  const config = GENERATION_CONFIG.DANGER_THRESHOLD;
-
-  // 1. Critical cases: very tight placement or zero large squares
-  if (avgPlacements <= config.PLACEMENT_PRESSURE.CRITICAL || maxSquare < 2) {
+  maxSquare: number,
+): "low" | "medium" | "high" | "critical" {
+  if (avgPlacements <= DANGER_THRESHOLD.PLACEMENT_PRESSURE.CRITICAL || maxSquare < 2) {
     return "critical";
   }
-
-  // 2. High cases: high occupancy or low placement pressure
-  if (
-    occupancy >= config.OCCUPANCY.HIGH || 
-    avgPlacements <= config.PLACEMENT_PRESSURE.HIGH
-  ) {
+  if (occupancy >= DANGER_THRESHOLD.OCCUPANCY.HIGH || avgPlacements <= DANGER_THRESHOLD.PLACEMENT_PRESSURE.HIGH) {
     return "high";
   }
-
-  // 3. Medium
-  if (occupancy >= config.OCCUPANCY.MEDIUM) {
+  if (occupancy >= DANGER_THRESHOLD.OCCUPANCY.MEDIUM) {
     return "medium";
   }
-
   return "low";
 }
 
