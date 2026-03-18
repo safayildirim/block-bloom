@@ -4,17 +4,18 @@
  */
 
 import {
+  BOARD_SIZE,
   CELL_SIZE,
   DRAG_OFFSET_Y,
   DRAG_SPEED,
   GAP,
+  GRID_PADDING,
   TRAY_CELL_SIZE,
   TRAY_GAP,
   getShapeDimensions,
 } from "@/constants/constants";
 import type { Block, BoardMeasurements } from "@/constants/types";
 import { useGameStore } from "@/store/useGameStore";
-import { getGridPosition } from "@/utils/gameLogic";
 import * as Haptics from "expo-haptics";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { LayoutChangeEvent, StyleSheet, View } from "react-native";
@@ -104,41 +105,52 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
         return;
       }
 
-      // Calculate the visual block's center position.
-      // The touch offset is at tray scale, and scale-from-center doesn't move the center,
-      // so we use tray dimensions directly: center = finger - offset + trayHalfSize
-      const visualBlockCenterX = absoluteX - offsetX + trayBlockWidthPx / 2;
-      const visualBlockCenterY =
-        absoluteY - offsetY + trayBlockHeightPx / 2 + DRAG_OFFSET_Y;
+      // Calculate the full-sized block's visual top-left position on screen.
+      // The block scales from center, so: center = finger - offset + trayHalf,
+      // then full-size top-left = center - fullHalf.
+      const visualTopLeftX =
+        absoluteX - offsetX + trayBlockWidthPx / 2 - blockWidthPx / 2;
+      const visualTopLeftY =
+        absoluteY -
+        offsetY +
+        trayBlockHeightPx / 2 -
+        blockHeightPx / 2 +
+        DRAG_OFFSET_Y;
 
-      // Get grid position based on visual block center
-      const centerGridPos = getGridPosition(
-        visualBlockCenterX,
-        visualBlockCenterY,
-        boardMeasurements,
+      // Convert to continuous grid coordinates (where the block's top-left would land)
+      const cellWithGap = CELL_SIZE + GAP;
+      const relX = visualTopLeftX - boardMeasurements.x - GRID_PADDING;
+      const relY = visualTopLeftY - boardMeasurements.y - GRID_PADDING;
+
+      // Only show ghost when block is near the board
+      const boardWidth = BOARD_SIZE * cellWithGap;
+      const boardHeight = BOARD_SIZE * cellWithGap;
+      const margin = cellWithGap * 2;
+      if (
+        relX < -blockWidthPx - margin ||
+        relX > boardWidth + margin ||
+        relY < -blockHeightPx - margin ||
+        relY > boardHeight + margin
+      ) {
+        onGhostUpdate(null);
+        return;
+      }
+
+      // Round to nearest cell and clamp to valid placement range
+      const nearestRow = Math.min(
+        Math.max(0, Math.round(relY / cellWithGap)),
+        BOARD_SIZE - shapeHeight,
+      );
+      const nearestCol = Math.min(
+        Math.max(0, Math.round(relX / cellWithGap)),
+        BOARD_SIZE - shapeWidth,
       );
 
-      if (!centerGridPos) {
-        onGhostUpdate(null);
-        return;
-      }
-
-      // Convert center-based grid position to top-left placement position
-      // Shapes are placed starting from their top-left corner
-      const topLeftRow = centerGridPos.row - Math.floor(shapeHeight / 2);
-      const topLeftCol = centerGridPos.col - Math.floor(shapeWidth / 2);
-
-      // Check bounds - top-left must be valid
-      if (topLeftRow < 0 || topLeftCol < 0) {
-        onGhostUpdate(null);
-        return;
-      }
-
-      const isValid = checkCollision(block.shape, topLeftRow, topLeftCol);
+      const isValid = checkCollision(block.shape, nearestRow, nearestCol);
 
       onGhostUpdate({
-        row: topLeftRow,
-        col: topLeftCol,
+        row: nearestRow,
+        col: nearestCol,
         shape: block.shape,
         isValid,
       });
@@ -146,6 +158,8 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
     [
       boardMeasurements,
       block.shape,
+      blockWidthPx,
+      blockHeightPx,
       trayBlockWidthPx,
       trayBlockHeightPx,
       shapeWidth,
@@ -157,7 +171,7 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
   );
 
   /**
-   * Attempt to place the block on the board using center-based snapping
+   * Attempt to place the block on the board using nearest-position snapping
    */
   const attemptPlacement = useCallback(
     (
@@ -178,44 +192,50 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
         return;
       }
 
-      // Calculate the visual block's center position.
-      // The touch offset is at tray scale, and scale-from-center doesn't move the center,
-      // so we use tray dimensions directly: center = finger - offset + trayHalfSize
-      const visualBlockCenterX = absoluteX - offsetX + trayBlockWidthPx / 2;
-      const visualBlockCenterY =
-        absoluteY - offsetY + trayBlockHeightPx / 2 + DRAG_OFFSET_Y;
+      // Calculate the full-sized block's visual top-left position on screen.
+      // The block scales from center, so: center = finger - offset + trayHalf,
+      // then full-size top-left = center - fullHalf.
+      const visualTopLeftX =
+        absoluteX - offsetX + trayBlockWidthPx / 2 - blockWidthPx / 2;
+      const visualTopLeftY =
+        absoluteY -
+        offsetY +
+        trayBlockHeightPx / 2 -
+        blockHeightPx / 2 +
+        DRAG_OFFSET_Y;
 
-      // Get grid position based on visual block center
-      const centerGridPos = getGridPosition(
-        visualBlockCenterX,
-        visualBlockCenterY,
-        boardMeasurements,
+      // Convert to continuous grid coordinates and round to nearest cell
+      const cellWithGap = CELL_SIZE + GAP;
+      const relX = visualTopLeftX - boardMeasurements.x - GRID_PADDING;
+      const relY = visualTopLeftY - boardMeasurements.y - GRID_PADDING;
+
+      // Reject placement when block is too far from the board
+      const boardWidth = BOARD_SIZE * cellWithGap;
+      const boardHeight = BOARD_SIZE * cellWithGap;
+      const margin = cellWithGap * 2;
+      if (
+        relX < -blockWidthPx - margin ||
+        relX > boardWidth + margin ||
+        relY < -blockHeightPx - margin ||
+        relY > boardHeight + margin
+      ) {
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+        scale.value = withSpring(1);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        return;
+      }
+
+      const nearestRow = Math.min(
+        Math.max(0, Math.round(relY / cellWithGap)),
+        BOARD_SIZE - shapeHeight,
+      );
+      const nearestCol = Math.min(
+        Math.max(0, Math.round(relX / cellWithGap)),
+        BOARD_SIZE - shapeWidth,
       );
 
-      if (!centerGridPos) {
-        // Invalid - spring back
-        translateX.value = withSpring(0);
-        translateY.value = withSpring(0);
-        scale.value = withSpring(1);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        return;
-      }
-
-      // Convert center-based grid position to top-left placement position
-      // Shapes are placed starting from their top-left corner
-      const topLeftRow = centerGridPos.row - Math.floor(shapeHeight / 2);
-      const topLeftCol = centerGridPos.col - Math.floor(shapeWidth / 2);
-
-      // Check bounds first - top-left must be valid
-      if (topLeftRow < 0 || topLeftCol < 0) {
-        translateX.value = withSpring(0);
-        translateY.value = withSpring(0);
-        scale.value = withSpring(1);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        return;
-      }
-
-      const isValid = checkCollision(block.shape, topLeftRow, topLeftCol);
+      const isValid = checkCollision(block.shape, nearestRow, nearestCol);
 
       if (!isValid) {
         // Invalid - spring back
@@ -227,7 +247,7 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
       }
 
       // Collision check passed, attempt to place
-      const success = placeBlock(block.id, topLeftRow, topLeftCol);
+      const success = placeBlock(block.id, nearestRow, nearestCol);
 
       if (success) {
         // Block placed successfully - fade out
@@ -247,6 +267,8 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
       boardMeasurements,
       block.id,
       block.shape,
+      blockWidthPx,
+      blockHeightPx,
       trayBlockWidthPx,
       trayBlockHeightPx,
       shapeWidth,
