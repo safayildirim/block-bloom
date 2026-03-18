@@ -4,9 +4,15 @@ import {
   getAllShapeDifficulties,
   resetDifficultyCache,
 } from "../shapeDifficulty";
+import {
+  recordBatch,
+  getGenerationContext,
+  resetGenerationContext,
+} from "../generationContext";
 
 beforeEach(() => {
   resetDifficultyCache();
+  resetGenerationContext();
 });
 
 describe("Shape Difficulty: Tier Assignment", () => {
@@ -49,5 +55,25 @@ describe("Shape Difficulty: Tier Assignment", () => {
     expect(shape17.cellCount).toBe(5);
     expect(shape17.compactness).toBe(1.0);
     expect(shape17.tier).toBe("medium");
+  });
+});
+
+describe("Generation Context: shapeIndices tracking", () => {
+  it("returns empty previousBatchShapeIndices when no history", () => {
+    const ctx = getGenerationContext();
+    expect(ctx.previousBatchShapeIndices).toEqual([]);
+  });
+
+  it("returns last batch shapeIndices", () => {
+    recordBatch({ difficulty: 0.3, usedFallback: false, danger: "low", shapeIndices: [5, 13, 1] });
+    const ctx = getGenerationContext();
+    expect(ctx.previousBatchShapeIndices).toEqual([5, 13, 1]);
+  });
+
+  it("updates previousBatchShapeIndices on new batch", () => {
+    recordBatch({ difficulty: 0.3, usedFallback: false, danger: "low", shapeIndices: [5, 13, 1] });
+    recordBatch({ difficulty: 0.5, usedFallback: false, danger: "medium", shapeIndices: [8, 17, 3] });
+    const ctx = getGenerationContext();
+    expect(ctx.previousBatchShapeIndices).toEqual([8, 17, 3]);
   });
 });
