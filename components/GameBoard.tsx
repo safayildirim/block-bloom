@@ -33,9 +33,6 @@ const GHOST_INVALID_COLOR = "rgba(255, 107, 107, 0.5)";
 // Flash color during crash animation
 const CRASH_FLASH_COLOR = "#ffffff";
 
-/** Duration of the crash animation in ms – must match the store's 420ms timeout */
-const ANIM_DURATION = 400;
-
 type CellAnimValues = {
   scale: Animated.Value;
   opacity: Animated.Value;
@@ -187,9 +184,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     if (!ghostPreview) return { isGhost: false, isValid: false };
 
     const { row: ghostRow, col: ghostCol, shape, isValid } = ghostPreview;
-
-    console.log("👀 ghostRow:", ghostRow);
-    console.log("👀 ghostCol:", ghostCol);
 
     for (let shapeRow = 0; shapeRow < shape.length; shapeRow++) {
       for (let shapeCol = 0; shapeCol < shape[shapeRow].length; shapeCol++) {

@@ -326,19 +326,31 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
       translateX.value = event.translationX * DRAG_SPEED;
       translateY.value = DRAG_OFFSET_Y + event.translationY * DRAG_SPEED;
 
+      // Adjust absolute positions to match the speed-multiplied visual position
+      const speedAdjustedX =
+        event.absoluteX + event.translationX * (DRAG_SPEED - 1);
+      const speedAdjustedY =
+        event.absoluteY + event.translationY * (DRAG_SPEED - 1);
+
       // Update ghost preview using corrected calculation
       runOnJS(updateGhost)(
-        event.absoluteX,
-        event.absoluteY,
+        speedAdjustedX,
+        speedAdjustedY,
         touchOffsetX.value,
         touchOffsetY.value,
       );
     })
     .onEnd((event) => {
+      // Adjust absolute positions to match the speed-multiplied visual position
+      const speedAdjustedX =
+        event.absoluteX + event.translationX * (DRAG_SPEED - 1);
+      const speedAdjustedY =
+        event.absoluteY + event.translationY * (DRAG_SPEED - 1);
+
       // Try to place the block
       runOnJS(attemptPlacement)(
-        event.absoluteX,
-        event.absoluteY,
+        speedAdjustedX,
+        speedAdjustedY,
         touchOffsetX.value,
         touchOffsetY.value,
       );
