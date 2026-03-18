@@ -81,17 +81,6 @@ export default function GameScreen() {
             </View>
           </View>
         )}
-
-        {/* Debug Info (Development only) */}
-        {__DEV__ && boardMeasurements && (
-          <View style={styles.debug}>
-            <Text style={styles.debugText}>
-              Board: {Math.round(boardMeasurements.x)},{" "}
-              {Math.round(boardMeasurements.y)}
-            </Text>
-            <Text style={styles.debugText}>Blocks: {currentBlocks.length}</Text>
-          </View>
-        )}
       </View>
     </GestureHandlerRootView>
   );
@@ -203,20 +192,5 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 18,
     fontWeight: "600",
-  },
-  debug: {
-    position: "absolute",
-    bottom: 200,
-    left: 10,
-    backgroundColor: "rgba(0, 0, 0, 0.8)",
-    padding: 8,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: "#0f0",
-  },
-  debugText: {
-    color: "#0f0",
-    fontSize: 10,
-    fontFamily: "Courier",
   },
 });
