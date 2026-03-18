@@ -4,7 +4,7 @@
  * Covers:
  *   - Batch validation success / failure
  *   - Placement after line clears unlocks remaining pieces
- *   - generateNextPieceBatch returns only valid batches
+ *   - generateWeightedPieceBatch returns only valid solvable batches
  *   - Fallback behaviour on near-full boards
  *   - Pure utility functions (clone, simulate, clear)
  */
@@ -19,7 +19,7 @@ import {
   getAllValidPlacements,
   isBatchSolvable,
 } from "@/utils/batchSolver";
-import { generateNextPieceBatch } from "@/utils/pieceGeneration";
+import { generateWeightedPieceBatch } from "@/utils/weightedGeneration";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -393,19 +393,19 @@ describe("isBatchSolvable", () => {
 });
 
 // ---------------------------------------------------------------------------
-// generateNextPieceBatch — integration tests
+// generateWeightedPieceBatch — integration tests
 // ---------------------------------------------------------------------------
 
-describe("generateNextPieceBatch", () => {
+describe("generateWeightedPieceBatch", () => {
   it("returns exactly 3 blocks", () => {
     const grid = createEmptyGrid();
-    const blocks = generateNextPieceBatch(grid);
+    const blocks = generateWeightedPieceBatch(grid);
     expect(blocks.length).toBe(3);
   });
 
   it("returned batch is solvable on an empty board", () => {
     const grid = createEmptyGrid();
-    const blocks = generateNextPieceBatch(grid);
+    const blocks = generateWeightedPieceBatch(grid);
     const shapes = blocks.map((b) => b.shape);
     expect(isBatchSolvable(grid, shapes)).toBe(true);
   });
@@ -418,14 +418,14 @@ describe("generateNextPieceBatch", () => {
         if ((r + c) % 3 === 0) grid[r][c] = 1;
       }
     }
-    const blocks = generateNextPieceBatch(grid);
+    const blocks = generateWeightedPieceBatch(grid);
     const shapes = blocks.map((b) => b.shape);
     expect(isBatchSolvable(grid, shapes)).toBe(true);
   });
 
   it("each block has id, shape, and color", () => {
     const grid = createEmptyGrid();
-    const blocks = generateNextPieceBatch(grid);
+    const blocks = generateWeightedPieceBatch(grid);
     for (const block of blocks) {
       expect(block.id).toBeDefined();
       expect(block.shape).toBeDefined();
@@ -443,7 +443,7 @@ describe("generateNextPieceBatch", () => {
       }
     }
     const grid = createNearlyFullBoard(emptyCells);
-    const blocks = generateNextPieceBatch(grid);
+    const blocks = generateWeightedPieceBatch(grid);
 
     // Should still return 3 blocks (via fallback if needed)
     expect(blocks.length).toBe(3);
@@ -458,7 +458,7 @@ describe("generateNextPieceBatch", () => {
     }
     const snapshot = JSON.stringify(grid);
 
-    generateNextPieceBatch(grid);
+    generateWeightedPieceBatch(grid);
 
     expect(JSON.stringify(grid)).toBe(snapshot);
   });
