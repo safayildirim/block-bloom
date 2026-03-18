@@ -55,6 +55,9 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
   const touchOffsetX = useSharedValue(0);
   const touchOffsetY = useSharedValue(0);
 
+  // Track if block is lifted via tap
+  const isLifted = useSharedValue(false);
+
   // Track if block was successfully placed (using React state, not shared value)
   const [isPlaced, setIsPlaced] = useState(false);
 
@@ -100,15 +103,12 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
         return;
       }
 
-      // Calculate the visual block's top-left position based on touch point and grab offset
-      // visualTopX = fingerX - grabOffsetX
-      // visualTopY = fingerY - grabOffsetY + DRAG_OFFSET_Y
-      const visualBlockTopX = absoluteX - offsetX;
-      const visualBlockTopY = absoluteY - offsetY + DRAG_OFFSET_Y;
-
-      // Calculate visual center based on Top-Left + Half Size
-      const visualBlockCenterX = visualBlockTopX + blockWidthPx / 2;
-      const visualBlockCenterY = visualBlockTopY + blockHeightPx / 2;
+      // Calculate the visual block's center position.
+      // The touch offset is at tray scale, and scale-from-center doesn't move the center,
+      // so we use tray dimensions directly: center = finger - offset + trayHalfSize
+      const visualBlockCenterX = absoluteX - offsetX + trayBlockWidthPx / 2;
+      const visualBlockCenterY =
+        absoluteY - offsetY + trayBlockHeightPx / 2 + DRAG_OFFSET_Y;
 
       // Get grid position based on visual block center
       const centerGridPos = getGridPosition(
@@ -145,8 +145,8 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
     [
       boardMeasurements,
       block.shape,
-      blockWidthPx,
-      blockHeightPx,
+      trayBlockWidthPx,
+      trayBlockHeightPx,
       shapeWidth,
       shapeHeight,
       checkCollision,
@@ -155,9 +155,6 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
     ],
   );
 
-  /**
-   * Attempt to place the block on the board using center-based snapping
-   */
   /**
    * Attempt to place the block on the board using center-based snapping
    */
@@ -180,13 +177,12 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
         return;
       }
 
-      // Calculate the visual block's top-left position based on touch point and grab offset
-      const visualBlockTopX = absoluteX - offsetX;
-      const visualBlockTopY = absoluteY - offsetY + DRAG_OFFSET_Y;
-
-      // Calculate visual center based on Top-Left + Half Size
-      const visualBlockCenterX = visualBlockTopX + blockWidthPx / 2;
-      const visualBlockCenterY = visualBlockTopY + blockHeightPx / 2;
+      // Calculate the visual block's center position.
+      // The touch offset is at tray scale, and scale-from-center doesn't move the center,
+      // so we use tray dimensions directly: center = finger - offset + trayHalfSize
+      const visualBlockCenterX = absoluteX - offsetX + trayBlockWidthPx / 2;
+      const visualBlockCenterY =
+        absoluteY - offsetY + trayBlockHeightPx / 2 + DRAG_OFFSET_Y;
 
       // Get grid position based on visual block center
       const centerGridPos = getGridPosition(
@@ -250,8 +246,8 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
       boardMeasurements,
       block.id,
       block.shape,
-      blockWidthPx,
-      blockHeightPx,
+      trayBlockWidthPx,
+      trayBlockHeightPx,
       shapeWidth,
       shapeHeight,
       checkCollision,
@@ -283,37 +279,46 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
   );
 
   /**
-   * Pan gesture handler with center-based snapping
-   */
-  /**
-   * Pan gesture handler with center-based snapping
+   * Gesture handlers
    */
   // Number of pixels outside the block bounds that still trigger the drag
   const HIT_SLOP = 24;
 
+  const tapGesture = Gesture.Tap()
+    .hitSlop(HIT_SLOP)
+    .onStart(() => {
+      if (!initialPosition) return;
+
+      if (isLifted.value) {
+        // Already lifted - tap again to put it back down
+        isLifted.value = false;
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+        scale.value = withSpring(1);
+      } else {
+        // Lift the block up near the board
+        isLifted.value = true;
+        scale.value = withSpring(dragScale);
+        translateY.value = withSpring(DRAG_OFFSET_Y);
+      }
+    });
+
   const panGesture = Gesture.Pan()
     .hitSlop(HIT_SLOP)
+    .minDistance(1)
     .onStart((event) => {
-      console.log("🟢 Gesture STARTED - initialPosition:", initialPosition);
-      if (!initialPosition) {
-        console.warn("⚠️ Cannot start drag: initialPosition not set");
-        return;
-      }
+      if (!initialPosition) return;
 
       // Capture where the user grabbed relative to the block's origin.
       // event.x/y includes the hitSlop area, so clamp to [0, blockSize]
       // to ensure the offset stays within valid block bounds.
       touchOffsetX.value = Math.max(0, Math.min(event.x, blockWidthPx));
       touchOffsetY.value = Math.max(0, Math.min(event.y, blockHeightPx));
-      console.log("👆 Grab offset (clamped):", {
-        x: touchOffsetX.value,
-        y: touchOffsetY.value,
-      });
 
-      // Scale up slightly when picked up
+      // Scale up when picked up (whether already lifted or not)
       scale.value = withSpring(dragScale);
-      // Apply visual offset to raise block above finger
       translateY.value = DRAG_OFFSET_Y;
+      isLifted.value = false;
     })
     .onUpdate((event) => {
       // Apply translation relative to start position, with offset
@@ -329,7 +334,6 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
       );
     })
     .onEnd((event) => {
-      console.log("🔴 Gesture ENDED");
       // Try to place the block
       runOnJS(attemptPlacement)(
         event.absoluteX,
@@ -339,6 +343,8 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
       );
       runOnJS(onGhostUpdate)(null);
     });
+
+  const composedGesture = Gesture.Race(panGesture, tapGesture);
 
   /**
    * Animated style for the block
@@ -404,7 +410,7 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
   }
 
   return (
-    <GestureDetector gesture={panGesture}>
+    <GestureDetector gesture={composedGesture}>
       <Animated.View
         onLayout={handleLayout}
         style={[
