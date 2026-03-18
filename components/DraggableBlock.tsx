@@ -5,9 +5,10 @@
 
 import {
   CELL_SIZE,
-  TRAY_CELL_SIZE,
   DRAG_OFFSET_Y,
+  DRAG_SPEED,
   GAP,
+  TRAY_CELL_SIZE,
   TRAY_GAP,
   getShapeDimensions,
 } from "@/constants/constants";
@@ -322,8 +323,8 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
     })
     .onUpdate((event) => {
       // Apply translation relative to start position, with offset
-      translateX.value = event.translationX;
-      translateY.value = DRAG_OFFSET_Y + event.translationY;
+      translateX.value = event.translationX * DRAG_SPEED;
+      translateY.value = DRAG_OFFSET_Y + event.translationY * DRAG_SPEED;
 
       // Update ghost preview using corrected calculation
       runOnJS(updateGhost)(

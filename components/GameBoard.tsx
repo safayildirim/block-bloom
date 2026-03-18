@@ -188,6 +188,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({
 
     const { row: ghostRow, col: ghostCol, shape, isValid } = ghostPreview;
 
+    console.log("👀 ghostRow:", ghostRow);
+    console.log("👀 ghostCol:", ghostCol);
+
     for (let shapeRow = 0; shapeRow < shape.length; shapeRow++) {
       for (let shapeCol = 0; shapeCol < shape[shapeRow].length; shapeCol++) {
         if (shape[shapeRow][shapeCol] === 1) {

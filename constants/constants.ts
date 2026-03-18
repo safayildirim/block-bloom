@@ -5,6 +5,7 @@ import type { Block, Shape } from "./types";
  */
 export const BOARD_SIZE = 8;
 export const CELL_SIZE = 40;
+export const DRAG_SPEED = 1.5;
 export const TRAY_CELL_SIZE = 24; // Smaller cell size for blocks in the bottom tray
 export const GAP = 2;
 export const TRAY_GAP = 1; // Smaller gap for tray blocks
@@ -146,7 +147,7 @@ export const generateRandomBlocks = (count: number = 3): Block[] => {
  * Calculate the dimensions of a shape
  */
 export const getShapeDimensions = (
-  shape: Shape
+  shape: Shape,
 ): { width: number; height: number } => {
   return {
     height: shape.length,
