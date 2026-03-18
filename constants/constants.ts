@@ -5,7 +5,9 @@ import type { Block, Shape } from "./types";
  */
 export const BOARD_SIZE = 8;
 export const CELL_SIZE = 40;
+export const TRAY_CELL_SIZE = 24; // Smaller cell size for blocks in the bottom tray
 export const GAP = 2;
+export const TRAY_GAP = 1; // Smaller gap for tray blocks
 export const GRID_PADDING = 16;
 export const DRAG_OFFSET_Y = -200; // Visual offset to raise block above finger during drag
 

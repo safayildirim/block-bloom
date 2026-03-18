@@ -134,21 +134,21 @@ const styles = StyleSheet.create({
   },
   tray: {
     backgroundColor: "#16162a",
-    paddingVertical: 20,
-    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 40,
+    paddingHorizontal: 16,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    minHeight: 180,
   },
   trayLabel: {
     color: "#888",
     fontSize: 12,
     textAlign: "center",
-    marginBottom: 16,
+    marginBottom: 12,
   },
   blockContainer: {
     flexDirection: "row",
-    justifyContent: "space-around",
+    justifyContent: "space-evenly",
     alignItems: "center",
   },
   blockWrapper: {

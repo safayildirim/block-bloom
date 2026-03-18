@@ -5,8 +5,10 @@
 
 import {
   CELL_SIZE,
+  TRAY_CELL_SIZE,
   DRAG_OFFSET_Y,
   GAP,
+  TRAY_GAP,
   getShapeDimensions,
 } from "@/constants/constants";
 import type { Block, BoardMeasurements } from "@/constants/types";
@@ -70,9 +72,18 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
     [block.shape],
   );
 
-  // Calculate block render size in pixels
+  // Full-size dimensions (used for ghost preview and placement calculations)
   const blockWidthPx = shapeWidth * CELL_SIZE + (shapeWidth - 1) * GAP;
   const blockHeightPx = shapeHeight * CELL_SIZE + (shapeHeight - 1) * GAP;
+
+  // Tray-size dimensions (smaller preview in the bottom panel)
+  const trayBlockWidthPx =
+    shapeWidth * TRAY_CELL_SIZE + (shapeWidth - 1) * TRAY_GAP;
+  const trayBlockHeightPx =
+    shapeHeight * TRAY_CELL_SIZE + (shapeHeight - 1) * TRAY_GAP;
+
+  // Scale factor from tray size to full size
+  const dragScale = CELL_SIZE / TRAY_CELL_SIZE;
 
   /**
    * Update ghost preview on the game board using center-based snapping
@@ -300,7 +311,7 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
       });
 
       // Scale up slightly when picked up
-      scale.value = withSpring(1.1);
+      scale.value = withSpring(dragScale);
       // Apply visual offset to raise block above finger
       translateY.value = DRAG_OFFSET_Y;
     })
@@ -356,8 +367,10 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
                 styles.cell,
                 {
                   backgroundColor: block.color,
-                  top: row * (CELL_SIZE + GAP),
-                  left: col * (CELL_SIZE + GAP),
+                  width: TRAY_CELL_SIZE,
+                  height: TRAY_CELL_SIZE,
+                  top: row * (TRAY_CELL_SIZE + TRAY_GAP),
+                  left: col * (TRAY_CELL_SIZE + TRAY_GAP),
                 },
               ]}
             />,
@@ -397,8 +410,8 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
         style={[
           styles.container,
           {
-            width: blockWidthPx,
-            height: blockHeightPx,
+            width: trayBlockWidthPx,
+            height: trayBlockHeightPx,
           },
           animatedStyle,
         ]}
@@ -415,8 +428,6 @@ const styles = StyleSheet.create({
   },
   cell: {
     position: "absolute",
-    width: CELL_SIZE,
-    height: CELL_SIZE,
     borderRadius: 4,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.3)",
