@@ -21,40 +21,40 @@ describe("Shape Difficulty: Tier Assignment", () => {
     expect(all).toHaveLength(SHAPES.length);
 
     // Small tier: 1-3 cells (1x1, 2x1s, 3x1s, small Ls)
-    const smallIndices = [0, 1, 2, 3, 4, 7, 8];
+    const smallIndices = [0, 1, 2, 3, 4, 9, 10];
     for (const i of smallIndices) {
       expect(all[i].tier).toBe("small");
     }
 
     // Medium tier: 4-5 cells (2x2, T-shapes, Z-shapes, 4x1s, 5x1s)
-    const mediumIndices = [5, 11, 12, 13, 14, 15, 16, 17, 18];
+    const mediumIndices = [5, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
     for (const i of mediumIndices) {
       expect(all[i].tier).toBe("medium");
     }
 
-    // Large tier: 6+ cells OR 5-cell awkward (3x3, large Ls)
-    const largeIndices = [6, 9, 10];
+    // Large tier: 6+ cells OR 5-cell awkward (3x2, 2x3, 3x3, large Ls)
+    const largeIndices = [6, 7, 8, 11, 12];
     for (const i of largeIndices) {
       expect(all[i].tier).toBe("large");
     }
   });
 
   it("bumps 5-cell shapes with low compactness to large", () => {
-    // Indices 9,10 are large L-shapes: 5 cells, 3x3 bbox, compactness ~0.56
-    const shape9 = computeShapeDifficulty(SHAPES[9], 9);
-    const shape10 = computeShapeDifficulty(SHAPES[10], 10);
-    expect(shape9.cellCount).toBe(5);
-    expect(shape9.compactness).toBeLessThan(0.6);
-    expect(shape9.tier).toBe("large");
-    expect(shape10.tier).toBe("large");
+    // Indices 11,12 are large L-shapes: 5 cells, 3x3 bbox, compactness ~0.56
+    const shape11 = computeShapeDifficulty(SHAPES[11], 11);
+    const shape12 = computeShapeDifficulty(SHAPES[12], 12);
+    expect(shape11.cellCount).toBe(5);
+    expect(shape11.compactness).toBeLessThan(0.6);
+    expect(shape11.tier).toBe("large");
+    expect(shape12.tier).toBe("large");
   });
 
   it("does NOT bump 5-cell compact shapes", () => {
-    // 5x1 line (index 17): 5 cells, compactness = 1.0 → stays medium
-    const shape17 = computeShapeDifficulty(SHAPES[17], 17);
-    expect(shape17.cellCount).toBe(5);
-    expect(shape17.compactness).toBe(1.0);
-    expect(shape17.tier).toBe("medium");
+    // 5x1 line (index 21): 5 cells, compactness = 1.0 → stays medium
+    const shape21 = computeShapeDifficulty(SHAPES[21], 21);
+    expect(shape21.cellCount).toBe(5);
+    expect(shape21.compactness).toBe(1.0);
+    expect(shape21.tier).toBe("medium");
   });
 });
 
@@ -157,7 +157,7 @@ describe("Archetype Selection", () => {
 describe("Within-Tier Slot Filling", () => {
   it("fillSlot('small') returns a shape from the small tier", () => {
     const analysis = makeMockAnalysis({ danger: "low" });
-    const smallIndices = [0, 1, 2, 3, 4, 7, 8];
+    const smallIndices = [0, 1, 2, 3, 4, 9, 10];
     for (let i = 0; i < 100; i++) {
       const idx = fillSlot("small", analysis, []);
       expect(smallIndices).toContain(idx);
@@ -166,7 +166,7 @@ describe("Within-Tier Slot Filling", () => {
 
   it("fillSlot('medium') returns a shape from the medium tier", () => {
     const analysis = makeMockAnalysis({ danger: "low" });
-    const mediumIndices = [5, 11, 12, 13, 14, 15, 16, 17, 18];
+    const mediumIndices = [5, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
     for (let i = 0; i < 100; i++) {
       const idx = fillSlot("medium", analysis, []);
       expect(mediumIndices).toContain(idx);
@@ -175,7 +175,7 @@ describe("Within-Tier Slot Filling", () => {
 
   it("fillSlot('large') returns a shape from the large tier", () => {
     const analysis = makeMockAnalysis({ danger: "low" });
-    const largeIndices = [6, 9, 10];
+    const largeIndices = [6, 7, 8, 11, 12];
     for (let i = 0; i < 100; i++) {
       const idx = fillSlot("large", analysis, []);
       expect(largeIndices).toContain(idx);
@@ -201,7 +201,7 @@ describe("Within-Tier Slot Filling", () => {
       counts[idx] = (counts[idx] ?? 0) + 1;
     }
     const prevTotal = prevIndices.reduce((sum, i) => sum + (counts[i] ?? 0), 0);
-    const otherSmall = [0, 4, 7, 8];
+    const otherSmall = [0, 4, 9, 10];
     const otherTotal = otherSmall.reduce((sum, i) => sum + (counts[i] ?? 0), 0);
     expect(otherTotal).toBeGreaterThan(prevTotal);
   });
@@ -217,9 +217,9 @@ describe("Within-Tier Slot Filling", () => {
       countsLow[idxLow] = (countsLow[idxLow] ?? 0) + 1;
       countsHigh[idxHigh] = (countsHigh[idxHigh] ?? 0) + 1;
     }
-    // 2x2 (index 5, compactness 1.0) vs T-shape (index 11, compactness ~0.67)
-    const ratioLow = (countsLow[5] ?? 1) / (countsLow[11] ?? 1);
-    const ratioHigh = (countsHigh[5] ?? 1) / (countsHigh[11] ?? 1);
+    // 2x2 (index 5, compactness 1.0) vs T-shape (index 13, compactness ~0.67)
+    const ratioLow = (countsLow[5] ?? 1) / (countsLow[13] ?? 1);
+    const ratioHigh = (countsHigh[5] ?? 1) / (countsHigh[13] ?? 1);
     expect(ratioHigh).toBeGreaterThan(ratioLow);
   });
 

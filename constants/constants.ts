@@ -52,6 +52,19 @@ export const SHAPES: Shape[] = [
     [1, 1],
   ],
 
+  // 3x2 rectangle (3 wide, 2 tall)
+  [
+    [1, 1, 1],
+    [1, 1, 1],
+  ],
+
+  // 2x3 rectangle (2 wide, 3 tall)
+  [
+    [1, 1],
+    [1, 1],
+    [1, 1],
+  ],
+
   // 3x3 square
   [
     [1, 1, 1],
@@ -95,6 +108,20 @@ export const SHAPES: Shape[] = [
   [
     [0, 1, 0],
     [1, 1, 1],
+  ],
+
+  // T-shape (right)
+  [
+    [1, 0],
+    [1, 1],
+    [1, 0],
+  ],
+
+  // T-shape (left)
+  [
+    [0, 1],
+    [1, 1],
+    [0, 1],
   ],
 
   // Z-shape
